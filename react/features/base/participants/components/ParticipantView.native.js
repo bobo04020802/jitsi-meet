@@ -2,8 +2,9 @@
 
 import React, { Component } from 'react';
 import { Text, View } from 'react-native';
-import FastImage from 'react-native-fast-image';
 
+import { YoutubeLargeVideo } from '../../../youtube-player';
+import { Avatar } from '../../avatar';
 import { translate } from '../../i18n';
 import { JitsiParticipantConnectionStatus } from '../../lib-jitsi-meet';
 import {
@@ -12,31 +13,17 @@ import {
 } from '../../media';
 import { Container, TintedView } from '../../react';
 import { connect } from '../../redux';
-import { StyleType } from '../../styles';
+import type { StyleType } from '../../styles';
 import { TestHint } from '../../testing/components';
 import { getTrackByMediaTypeAndParticipant } from '../../tracks';
+import { shouldRenderParticipantVideo, getParticipantById } from '../functions';
 
-import Avatar from './Avatar';
-import {
-    getAvatarURL,
-    getParticipantById,
-    getParticipantDisplayName,
-    shouldRenderParticipantVideo
-} from '../functions';
 import styles from './styles';
 
 /**
  * The type of the React {@link Component} props of {@link ParticipantView}.
  */
 type Props = {
-
-    /**
-     * The source (e.g. URI, URL) of the avatar image of the participant with
-     * {@link #participantId}.
-     *
-     * @private
-     */
-    _avatar: string,
 
     /**
      * The connection status of the participant. Her video will only be rendered
@@ -46,6 +33,13 @@ type Props = {
      * @private
      */
     _connectionStatus: string,
+
+    /**
+     * True if the participant which this component represents is fake.
+     *
+     * @private
+     */
+    _isFakeParticipant: boolean,
 
     /**
      * The name of the participant which this component represents.
@@ -68,6 +62,11 @@ type Props = {
      * The avatar size.
      */
     avatarSize: number,
+
+    /**
+     * Whether video should be disabled for his view.
+     */
+    disableVideo: ?boolean,
 
     /**
      * Callback to invoke when the {@code ParticipantView} is clicked/pressed.
@@ -153,9 +152,6 @@ class ParticipantView extends Component<Props> {
         case JitsiParticipantConnectionStatus.INACTIVE:
             messageKey = 'connection.LOW_BANDWIDTH';
             break;
-        case JitsiParticipantConnectionStatus.INTERRUPTED:
-            messageKey = 'connection.USER_CONNECTION_INTERRUPTED';
-            break;
         default:
             return null;
         }
@@ -192,18 +188,14 @@ class ParticipantView extends Component<Props> {
      */
     render() {
         const {
-            _avatar: avatar,
             _connectionStatus: connectionStatus,
+            _isFakeParticipant,
             _renderVideo: renderVideo,
             _videoTrack: videoTrack,
+            disableVideo,
             onPress,
             tintStyle
         } = this.props;
-
-        const waitForVideoStarted = false;
-
-        // Is the avatar to be rendered?
-        const renderAvatar = Boolean(!renderVideo && avatar);
 
         // If the connection has problems, we will "tint" the video / avatar.
         const connectionProblem
@@ -216,9 +208,11 @@ class ParticipantView extends Component<Props> {
                 ? this.props.testHintId
                 : `org.jitsi.meet.Participant#${this.props.participantId}`;
 
+        const renderYoutubeLargeVideo = _isFakeParticipant && !disableVideo;
+
         return (
             <Container
-                onClick = { renderVideo ? undefined : onPress }
+                onClick = { renderVideo || renderYoutubeLargeVideo ? undefined : onPress }
                 style = {{
                     ...styles.participantView,
                     ...this.props.style
@@ -227,21 +221,25 @@ class ParticipantView extends Component<Props> {
 
                 <TestHint
                     id = { testHintId }
-                    onPress = { onPress }
+                    onPress = { renderYoutubeLargeVideo ? undefined : onPress }
                     value = '' />
 
-                { renderVideo
+                { renderYoutubeLargeVideo && <YoutubeLargeVideo youtubeId = { this.props.participantId } /> }
+
+                { !_isFakeParticipant && renderVideo
                     && <VideoTrack
                         onPress = { onPress }
                         videoTrack = { videoTrack }
-                        waitForVideoStarted = { waitForVideoStarted }
+                        waitForVideoStarted = { false }
                         zOrder = { this.props.zOrder }
                         zoomEnabled = { this.props.zoomEnabled } /> }
 
-                { renderAvatar
-                    && <Avatar
-                        size = { this.props.avatarSize }
-                        uri = { avatar } /> }
+                { !renderYoutubeLargeVideo && !renderVideo
+                    && <View style = { styles.avatarContainer }>
+                        <Avatar
+                            participantId = { this.props.participantId }
+                            size = { this.props.avatarSize } />
+                    </View> }
 
                 { useTint
 
@@ -265,50 +263,21 @@ class ParticipantView extends Component<Props> {
  * @param {Object} ownProps - The React {@code Component} props passed to the
  * associated (instance of) {@code ParticipantView}.
  * @private
- * @returns {{
- *     _avatar: string,
- *     _connectionStatus: string,
- *     _participantName: string,
- *     _renderVideo: boolean,
- *     _videoTrack: Track
- * }}
+ * @returns {Props}
  */
 function _mapStateToProps(state, ownProps) {
-    const { participantId } = ownProps;
+    const { disableVideo, participantId } = ownProps;
     const participant = getParticipantById(state, participantId);
-    let avatar;
     let connectionStatus;
     let participantName;
 
-    if (participant) {
-        avatar = getAvatarURL(participant);
-        connectionStatus = participant.connectionStatus;
-        participantName = getParticipantDisplayName(state, participant.id);
-
-        // Avatar (on React Native) now has the ability to generate an
-        // automatically-colored default image when no URI/URL is specified or
-        // when it fails to load. In order to make the coloring permanent(ish)
-        // per participant, Avatar will need something permanent(ish) per
-        // perticipant, obviously. A participant's ID is such a piece of data.
-        // But the local participant changes her ID as she joins, leaves.
-        // TODO @lyubomir: The participants may change their avatar URLs at
-        // runtime which means that, if their old and new avatar URLs fail to
-        // download, Avatar will change their automatically-generated colors.
-        avatar || participant.local || (avatar = `#${participant.id}`);
-
-        // ParticipantView knows before Avatar that an avatar URL will be used
-        // so it's advisable to prefetch here.
-        avatar && !avatar.startsWith('#')
-            && FastImage.preload([ { uri: avatar } ]);
-    }
-
     return {
-        _avatar: avatar,
         _connectionStatus:
             connectionStatus
                 || JitsiParticipantConnectionStatus.ACTIVE,
+        _isFakeParticipant: participant && participant.isFakeParticipant,
         _participantName: participantName,
-        _renderVideo: shouldRenderParticipantVideo(state, participantId),
+        _renderVideo: shouldRenderParticipantVideo(state, participantId) && !disableVideo,
         _videoTrack:
             getTrackByMediaTypeAndParticipant(
                 state['features/base/tracks'],

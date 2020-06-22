@@ -1,4 +1,15 @@
 /**
+ * The type of Redux action which sets the noSrcDataNotificationUid state representing the UID of the previous
+ * no data from source notification. Used to check if such a notification was previously displayed.
+ *
+ * {
+ *     type: SET_NO_SRC_DATA_NOTIFICATION_UID,
+ *     uid: ?number
+ * }
+ */
+export const SET_NO_SRC_DATA_NOTIFICATION_UID = 'SET_NO_SRC_DATA_NOTIFICATION_UID';
+
+/**
  * The type of redux action dispatched to disable screensharing or to start the
  * flow for enabling screenshare.
  *
@@ -42,6 +53,16 @@ export const TRACK_CREATE_CANCELED = 'TRACK_CREATE_CANCELED';
  * }
  */
 export const TRACK_CREATE_ERROR = 'TRACK_CREATE_ERROR';
+
+/**
+ * The type of redux action dispatched when a track has triggered no data from source event.
+ *
+ * {
+ *     type: TRACK_NO_DATA_FROM_SOURCE,
+ *     track: Track
+ * }
+ */
+export const TRACK_NO_DATA_FROM_SOURCE = 'TRACK_NO_DATA_FROM_SOURCE';
 
 /**
  * The type of redux action dispatched when a track has been (locally or

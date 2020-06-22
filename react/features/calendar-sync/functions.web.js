@@ -1,12 +1,13 @@
 // @flow
 
+import { toState } from '../base/redux';
+
 import {
     clearCalendarIntegration,
     setCalendarError,
     setLoadingCalendarEvents
 } from './actions';
 export * from './functions.any';
-
 import {
     CALENDAR_TYPE,
     ERRORS,
@@ -14,24 +15,26 @@ import {
     FETCH_START_DAYS
 } from './constants';
 import { _updateCalendarEntries } from './functions';
+import logger from './logger';
 import { googleCalendarApi } from './web/googleCalendar';
 import { microsoftCalendarApi } from './web/microsoftCalendar';
-
-const logger = require('jitsi-meet-logger').getLogger(__filename);
-
-declare var config: Object;
 
 /**
  * Determines whether the calendar feature is enabled by the web.
  *
+ * @param {Function|Object} stateful - The redux store or {@code getState}
+ * function.
  * @returns {boolean} If the app has enabled the calendar feature, {@code true};
  * otherwise, {@code false}.
  */
-export function isCalendarEnabled() {
-    return Boolean(
-        config.enableCalendarIntegration
-            && (config.googleApiApplicationClientID
-                || config.microsoftApiApplicationClientID));
+export function isCalendarEnabled(stateful: Function | Object) {
+    const {
+        enableCalendarIntegration,
+        googleApiApplicationClientID,
+        microsoftApiApplicationClientID
+    } = toState(stateful)['features/base/config'] || {};
+
+    return Boolean(enableCalendarIntegration && (googleApiApplicationClientID || microsoftApiApplicationClientID));
 }
 
 /* eslint-disable no-unused-vars */

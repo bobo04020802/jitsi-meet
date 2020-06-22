@@ -1,9 +1,9 @@
 // @flow
 
+import { LOCKED_LOCALLY, LOCKED_REMOTELY } from '../../room-lock';
 import { CONNECTION_WILL_CONNECT, SET_LOCATION_URL } from '../connection';
 import { JitsiConferenceErrors } from '../lib-jitsi-meet';
 import { assign, ReducerRegistry, set } from '../redux';
-import { LOCKED_LOCALLY, LOCKED_REMOTELY } from '../../room-lock';
 
 import {
     AUTH_STATUS_CHANGED,
@@ -11,17 +11,17 @@ import {
     CONFERENCE_JOINED,
     CONFERENCE_LEFT,
     CONFERENCE_SUBJECT_CHANGED,
+    CONFERENCE_TIMESTAMP_CHANGED,
     CONFERENCE_WILL_JOIN,
     CONFERENCE_WILL_LEAVE,
     LOCK_STATE_CHANGED,
     P2P_STATUS_CHANGED,
-    SET_AUDIO_ONLY,
     SET_DESKTOP_SHARING_ENABLED,
     SET_FOLLOW_ME,
     SET_MAX_RECEIVER_VIDEO_QUALITY,
     SET_PASSWORD,
     SET_PENDING_SUBJECT_CHANGE,
-    SET_PREFERRED_RECEIVER_VIDEO_QUALITY,
+    SET_PREFERRED_VIDEO_QUALITY,
     SET_ROOM,
     SET_SIP_GATEWAY_ENABLED,
     SET_START_MUTED_POLICY
@@ -31,13 +31,15 @@ import { isRoomValid } from './functions';
 
 const DEFAULT_STATE = {
     conference: undefined,
+    e2eeSupported: undefined,
     joining: undefined,
     leaving: undefined,
     locked: undefined,
     maxReceiverVideoQuality: VIDEO_QUALITY_LEVELS.HIGH,
+    membersOnly: undefined,
     password: undefined,
     passwordRequired: undefined,
-    preferredReceiverVideoQuality: VIDEO_QUALITY_LEVELS.HIGH
+    preferredVideoQuality: VIDEO_QUALITY_LEVELS.HIGH
 };
 
 /**
@@ -60,6 +62,9 @@ ReducerRegistry.register(
         case CONFERENCE_SUBJECT_CHANGED:
             return set(state, 'subject', action.subject);
 
+        case CONFERENCE_TIMESTAMP_CHANGED:
+            return set(state, 'conferenceTimestamp', action.conferenceTimestamp);
+
         case CONFERENCE_LEFT:
         case CONFERENCE_WILL_LEAVE:
             return _conferenceLeftOrWillLeave(state, action);
@@ -75,9 +80,6 @@ ReducerRegistry.register(
 
         case P2P_STATUS_CHANGED:
             return _p2pStatusChanged(state, action);
-
-        case SET_AUDIO_ONLY:
-            return _setAudioOnly(state, action);
 
         case SET_DESKTOP_SHARING_ENABLED:
             return _setDesktopSharingEnabled(state, action);
@@ -100,11 +102,11 @@ ReducerRegistry.register(
         case SET_PENDING_SUBJECT_CHANGE:
             return set(state, 'pendingSubjectChange', action.subject);
 
-        case SET_PREFERRED_RECEIVER_VIDEO_QUALITY:
+        case SET_PREFERRED_VIDEO_QUALITY:
             return set(
                 state,
-                'preferredReceiverVideoQuality',
-                action.preferredReceiverVideoQuality);
+                'preferredVideoQuality',
+                action.preferredVideoQuality);
 
         case SET_ROOM:
             return _setRoom(state, action);
@@ -160,11 +162,17 @@ function _conferenceFailed(state, { conference, error }) {
     }
 
     let authRequired;
+    let membersOnly;
     let passwordRequired;
 
     switch (error.name) {
     case JitsiConferenceErrors.AUTHENTICATION_REQUIRED:
         authRequired = conference;
+        break;
+
+    case JitsiConferenceErrors.CONFERENCE_ACCESS_DENIED:
+    case JitsiConferenceErrors.MEMBERS_ONLY_ERROR:
+        membersOnly = conference;
         break;
 
     case JitsiConferenceErrors.PASSWORD_REQUIRED:
@@ -175,6 +183,7 @@ function _conferenceFailed(state, { conference, error }) {
     return assign(state, {
         authRequired,
         conference: undefined,
+        e2eeSupported: undefined,
         error,
         joining: undefined,
         leaving: undefined,
@@ -187,6 +196,7 @@ function _conferenceFailed(state, { conference, error }) {
          * @type {string}
          */
         locked: passwordRequired ? LOCKED_REMOTELY : undefined,
+        membersOnly,
         password: undefined,
 
         /**
@@ -213,7 +223,8 @@ function _conferenceJoined(state, { conference }) {
     // i.e. password-protected is private to lib-jitsi-meet. However, the
     // library does not fire LOCK_STATE_CHANGED upon joining a JitsiConference
     // with a password.
-    const locked = conference.room.locked ? LOCKED_REMOTELY : undefined;
+    // FIXME Technically JitsiConference.room is a private field.
+    const locked = conference.room && conference.room.locked ? LOCKED_REMOTELY : undefined;
 
     return assign(state, {
         authRequired: undefined,
@@ -225,7 +236,11 @@ function _conferenceJoined(state, { conference }) {
          * @type {JitsiConference}
          */
         conference,
+
+        e2eeSupported: conference.isE2EESupported(),
+
         joining: undefined,
+        membersOnly: undefined,
         leaving: undefined,
 
         /**
@@ -346,20 +361,6 @@ function _p2pStatusChanged(state, action) {
 }
 
 /**
- * Reduces a specific Redux action SET_AUDIO_ONLY of the feature
- * base/conference.
- *
- * @param {Object} state - The Redux state of the feature base/conference.
- * @param {Action} action - The Redux action SET_AUDIO_ONLY to reduce.
- * @private
- * @returns {Object} The new state of the feature base/conference after the
- * reduction of the specified action.
- */
-function _setAudioOnly(state, action) {
-    return set(state, 'audioOnly', action.audioOnly);
-}
-
-/**
  * Reduces a specific Redux action SET_DESKTOP_SHARING_ENABLED of the feature
  * base/conference.
  *
@@ -386,34 +387,30 @@ function _setDesktopSharingEnabled(state, action) {
 function _setPassword(state, { conference, method, password }) {
     switch (method) {
     case conference.join:
-        if (state.passwordRequired === conference) {
-            return assign(state, {
-                // XXX 1. The JitsiConference which transitions away from
-                // passwordRequired MUST remain in the redux state
-                // features/base/conference until it transitions into
-                // conference; otherwise, there is a span of time during which
-                // the redux state does not even know that there is a
-                // JitsiConference whatsoever.
-                //
-                // 2. The redux action setPassword will attempt to join the
-                // JitsiConference so joining is an appropriate transitional
-                // redux state.
-                //
-                // 3. The redux action setPassword will perform the same check
-                // before it proceeds with the re-join.
-                joining: state.conference ? state.joining : conference,
-                locked: LOCKED_REMOTELY,
+        return assign(state, {
+            // 1. The JitsiConference which transitions away from
+            // passwordRequired MUST remain in the redux state
+            // features/base/conference until it transitions into
+            // conference; otherwise, there is a span of time during which
+            // the redux state does not even know that there is a
+            // JitsiConference whatsoever.
+            //
+            // 2. The redux action setPassword will attempt to join the
+            // JitsiConference so joining is an appropriate transitional
+            // redux state.
+            //
+            // 3. The redux action setPassword will perform the same check
+            // before it proceeds with the re-join.
+            joining: state.conference ? state.joining : conference,
+            locked: LOCKED_REMOTELY,
 
-                /**
-                 * The password with which the conference is to be joined.
-                 *
-                 * @type {string}
-                 */
-                password,
-                passwordRequired: undefined
-            });
-        }
-        break;
+            /**
+             * The password with which the conference is to be joined.
+             *
+             * @type {string}
+             */
+            password
+        });
 
     case conference.lock:
         return assign(state, {

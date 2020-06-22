@@ -11,13 +11,13 @@ import {
     getDeviceSelectionDialogProps,
     submitDeviceSelectionTab
 } from '../../../device-selection';
+import { submitMoreTab, submitProfileTab } from '../../actions';
+import { SETTINGS_TABS } from '../../constants';
+import { getMoreTabProps, getProfileTabProps } from '../../functions';
 
 import CalendarTab from './CalendarTab';
 import MoreTab from './MoreTab';
 import ProfileTab from './ProfileTab';
-import { getMoreTabProps, getProfileTabProps } from '../../functions';
-import { submitMoreTab, submitProfileTab } from '../../actions';
-import { SETTINGS_TABS } from '../../constants';
 
 declare var APP: Object;
 declare var interfaceConfig: Object;
@@ -135,7 +135,7 @@ function _mapStateToProps(state) {
     const showProfileSettings
         = configuredTabs.includes('profile') && jwt.isGuest;
     const showCalendarSettings
-        = configuredTabs.includes('calendar') && isCalendarEnabled();
+        = configuredTabs.includes('calendar') && isCalendarEnabled(state);
     const tabs = [];
 
     if (showDeviceSettings) {
@@ -190,6 +190,17 @@ function _mapStateToProps(state) {
             component: MoreTab,
             label: 'settings.more',
             props: moreTabProps,
+            propsUpdateFunction: (tabState, newProps) => {
+                // Updates tab props, keeping users selection
+
+                return {
+                    ...newProps,
+                    currentLanguage: tabState.currentLanguage,
+                    followMeEnabled: tabState.followMeEnabled,
+                    startAudioMuted: tabState.startAudioMuted,
+                    startVideoMuted: tabState.startVideoMuted
+                };
+            },
             styles: 'settings-pane more-pane',
             submit: submitMoreTab
         });

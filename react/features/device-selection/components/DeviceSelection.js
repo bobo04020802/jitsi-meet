@@ -2,17 +2,18 @@
 
 import React from 'react';
 
-import { AbstractDialogTab } from '../../base/dialog';
-import type { Props as AbstractDialogTabProps } from '../../base/dialog';
-import { translate } from '../../base/i18n';
-import JitsiMeetJS, { createLocalTrack } from '../../base/lib-jitsi-meet';
+import AbstractDialogTab, {
+    type Props as AbstractDialogTabProps
+} from '../../base/dialog/components/web/AbstractDialogTab';
+import { translate } from '../../base/i18n/functions';
+import JitsiMeetJS from '../../base/lib-jitsi-meet/_';
+import { createLocalTrack } from '../../base/lib-jitsi-meet/functions';
+import logger from '../logger';
 
 import AudioInputPreview from './AudioInputPreview';
 import AudioOutputPreview from './AudioOutputPreview';
 import DeviceSelector from './DeviceSelector';
 import VideoInputPreview from './VideoInputPreview';
-
-const logger = require('jitsi-meet-logger').getLogger(__filename);
 
 /**
  * The type of the React {@code Component} props of {@link DeviceSelection}.
@@ -118,6 +119,18 @@ type State = {
  * @extends Component
  */
 class DeviceSelection extends AbstractDialogTab<Props, State> {
+
+    /**
+     * Whether current component is mounted or not.
+     *
+     * In component did mount we start a Promise to create tracks and
+     * set the tracks in the state, if we unmount the component in the meanwhile
+     * tracks will be created and will never been disposed (dispose tracks is
+     * in componentWillUnmount). When tracks are created and component is
+     * unmounted we dispose the tracks.
+     */
+    _unMounted: boolean;
+
     /**
      * Initializes a new DeviceSelection instance.
      *
@@ -134,6 +147,7 @@ class DeviceSelection extends AbstractDialogTab<Props, State> {
             previewVideoTrack: null,
             previewVideoTrackError: null
         };
+        this._unMounted = true;
     }
 
     /**
@@ -142,6 +156,7 @@ class DeviceSelection extends AbstractDialogTab<Props, State> {
      * @inheritdoc
      */
     componentDidMount() {
+        this._unMounted = false;
         Promise.all([
             this._createAudioInputTrack(this.props.selectedAudioInputId),
             this._createVideoInputTrack(this.props.selectedVideoInputId)
@@ -193,6 +208,7 @@ class DeviceSelection extends AbstractDialogTab<Props, State> {
      * @inheritdoc
      */
     componentWillUnmount() {
+        this._unMounted = true;
         this._disposeAudioInputPreview();
         this._disposeVideoInputPreview();
     }
@@ -244,6 +260,12 @@ class DeviceSelection extends AbstractDialogTab<Props, State> {
         return this._disposeAudioInputPreview()
             .then(() => createLocalTrack('audio', deviceId))
             .then(jitsiLocalTrack => {
+                if (this._unMounted) {
+                    jitsiLocalTrack.dispose();
+
+                    return;
+                }
+
                 this.setState({
                     previewAudioTrack: jitsiLocalTrack
                 });
@@ -268,6 +290,12 @@ class DeviceSelection extends AbstractDialogTab<Props, State> {
             .then(jitsiLocalTrack => {
                 if (!jitsiLocalTrack) {
                     return Promise.reject();
+                }
+
+                if (this._unMounted) {
+                    jitsiLocalTrack.dispose();
+
+                    return;
                 }
 
                 this.setState({
@@ -345,7 +373,8 @@ class DeviceSelection extends AbstractDialogTab<Props, State> {
                 label: 'settings.selectCamera',
                 onSelect: selectedVideoInputId =>
                     super._onChange({ selectedVideoInputId }),
-                selectedDeviceId: this.props.selectedVideoInputId
+                selectedDeviceId: this.state.previewVideoTrack
+                    ? this.state.previewVideoTrack.getDeviceId() : null
             },
             {
                 devices: availableDevices.audioInput,
@@ -357,7 +386,8 @@ class DeviceSelection extends AbstractDialogTab<Props, State> {
                 label: 'settings.selectMic',
                 onSelect: selectedAudioInputId =>
                     super._onChange({ selectedAudioInputId }),
-                selectedDeviceId: this.props.selectedAudioInputId
+                selectedDeviceId: this.state.previewAudioTrack
+                    ? this.state.previewAudioTrack.getDeviceId() : null
             }
         ];
 

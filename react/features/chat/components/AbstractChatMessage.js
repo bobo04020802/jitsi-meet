@@ -2,7 +2,13 @@
 
 import { PureComponent } from 'react';
 
-import { getAvatarURLByParticipantId } from '../../base/participants';
+import { getLocalizedDateFormatter } from '../../base/i18n';
+import { MESSAGE_TYPE_ERROR, MESSAGE_TYPE_LOCAL } from '../constants';
+
+/**
+ * Formatter string to display the message timestamp.
+ */
+const TIMESTAMP_FORMAT = 'H:mm';
 
 /**
  * The type of the React {@code Component} props of {@code AbstractChatMessage}.
@@ -10,14 +16,27 @@ import { getAvatarURLByParticipantId } from '../../base/participants';
 export type Props = {
 
     /**
-     * The URL of the avatar of the participant.
-     */
-    _avatarURL: string,
-
-    /**
      * The representation of a chat message.
      */
     message: Object,
+
+    /**
+     * Whether or not the avatar image of the participant which sent the message
+     * should be displayed.
+     */
+    showAvatar: boolean,
+
+    /**
+     * Whether or not the name of the participant which sent the message should
+     * be displayed.
+     */
+    showDisplayName: boolean,
+
+    /**
+     * Whether or not the time at which the message was sent should be
+     * displayed.
+     */
+    showTimestamp: boolean,
 
     /**
      * Invoked to receive translated strings.
@@ -28,21 +47,42 @@ export type Props = {
 /**
  * Abstract component to display a chat message.
  */
-export default class AbstractChatMessage<P: Props> extends PureComponent<P> {}
+export default class AbstractChatMessage<P: Props> extends PureComponent<P> {
+    /**
+     * Returns the timestamp to display for the message.
+     *
+     * @returns {string}
+     */
+    _getFormattedTimestamp() {
+        return getLocalizedDateFormatter(new Date(this.props.message.timestamp))
+            .format(TIMESTAMP_FORMAT);
+    }
 
-/**
- * Maps part of the Redux state to the props of this component.
- *
- * @param {Object} state - The Redux state.
- * @param {Props} ownProps - The own props of the component.
- * @returns {{
- *     _avatarURL: string
- * }}
- */
-export function _mapStateToProps(state: Object, ownProps: Props) {
-    const { message } = ownProps;
+    /**
+     * Generates the message text to be redered in the component.
+     *
+     * @returns {string}
+     */
+    _getMessageText() {
+        const { message } = this.props;
 
-    return {
-        _avatarURL: getAvatarURLByParticipantId(state, message.user._id)
-    };
+        return message.messageType === MESSAGE_TYPE_ERROR
+            ? this.props.t('chat.error', {
+                error: message.message
+            })
+            : message.message;
+    }
+
+    /**
+     * Returns the message that is displayed as a notice for private messages.
+     *
+     * @returns {string}
+     */
+    _getPrivateNoticeMessage() {
+        const { message, t } = this.props;
+
+        return t('chat.privateNotice', {
+            recipient: message.messageType === MESSAGE_TYPE_LOCAL ? message.recipient : t('chat.you')
+        });
+    }
 }

@@ -2,7 +2,7 @@
 
 import type { Dispatch } from 'redux';
 
-import { appNavigate } from '../app';
+import { appNavigate } from '../app/actions';
 import { checkIfCanJoin, conferenceLeft } from '../base/conference';
 import { connectionFailed } from '../base/connection';
 import { openDialog } from '../base/dialog';
@@ -16,8 +16,7 @@ import {
     WAIT_FOR_OWNER
 } from './actionTypes';
 import { LoginDialog, WaitForOwnerDialog } from './components';
-
-const logger = require('jitsi-meet-logger').getLogger(__filename);
+import logger from './logger';
 
 /**
  * Initiates authenticating and upgrading the role of the local participant to

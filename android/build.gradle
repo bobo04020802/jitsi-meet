@@ -13,8 +13,8 @@ buildscript {
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:3.3.2'
-        classpath 'com.google.gms:google-services:4.2.0'
-        classpath 'io.fabric.tools:gradle:1.27.0'
+        classpath 'com.google.gms:google-services:4.3.3'
+        classpath 'io.fabric.tools:gradle:1.28.1'
 
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files.
@@ -25,8 +25,7 @@ allprojects {
     repositories {
         google()
         jcenter()
-        // React Native (JS, Obj-C sources, Android binaries) is installed from
-        // npm.
+        // React Native (JS, Obj-C sources, Android binaries) is installed from npm.
         maven { url "$rootDir/../node_modules/react-native/android" }
     }
 
@@ -55,56 +54,40 @@ allprojects {
         publishing {
             publications {}
             repositories {
-                maven { url "file:${rootProject.projectDir}/../../jitsi-maven-repository/releases" }
+                maven {
+                    url rootProject.ext.mavenRepo
+                    if (!rootProject.ext.mavenRepo.startsWith("file")) {
+                        credentials {
+                            username rootProject.ext.mavenUser
+                            password rootProject.ext.mavenPassword
+                        }
+                    }
+                }
             }
         }
     }
 
+    // Use the number of seconds/10 since Jan 1 2019 as the version qualifier number.
+    // This will last for the next ~680 years.
+    // https://stackoverflow.com/a/38643838
+    def versionQualifierNumber = (int)(((new Date().getTime()/1000) - 1546297200) / 10)
+
     afterEvaluate { project ->
+        if (project.plugins.hasPlugin('android') || project.plugins.hasPlugin('android-library')) {
+            project.android {
+                compileSdkVersion rootProject.ext.compileSdkVersion
+                buildToolsVersion rootProject.ext.buildToolsVersion
+            }
+        }
+
         if (project.name.startsWith('react-native-')) {
             def npmManifest = project.file('../package.json')
             def json = new JsonSlurper().parseText(npmManifest.text)
 
-            // React Native modules have an npm peer dependency on react-native,
-            // they do not have an npm dependency on it. Further below though we
-            // choose a react-native version (range) when we represent them as
-            // Maven artifacts. Effectively, we are forking the projects by not
-            // complying with the full range of their npm peer dependency and,
-            // consequently, we should qualify their version.
-            def versionQualifier = '-jitsi-1'
-            if ('react-native-background-timer' == project.name)
-                versionQualifier = '-jitsi-3' // 2.0.0 + react-native 0.57
-            else if ('react-native-calendar-events' == project.name)
-                versionQualifier = '-jitsi-2' // 1.6.4 + react-native 0.57
-            else if ('react-native-fast-image' == project.name)
-                versionQualifier = '-jitsi-2' // 5.1.1 + react-native 0.57
-            else if ('react-native-google-signin' == project.name)
-                versionQualifier = '-jitsi-2' // 1.0.2 + react-native 0.57
-            else if ('react-native-immersive' == project.name)
-                versionQualifier = '-jitsi-5' // 2.0.0 + react-native 0.57
-            else if ('react-native-keep-awake' == project.name)
-                versionQualifier = '-jitsi-4' // 4.0.0 + react-native 0.57
-            else if ('react-native-linear-gradient' == project.name)
-                versionQualifier = '-jitsi-1' // 2.4.0 + react-native 0.57
-            else if ('react-native-sound' == project.name)
-                versionQualifier = '-jitsi-2' // 0.10.9 + react-native 0.57
-            else if ('react-native-vector-icons' == project.name)
-                versionQualifier = '-jitsi-3' // 6.0.2 + react-native 0.57
-            else if ('react-native-webrtc' == project.name)
-                versionQualifier = '-jitsi-9' // 6322a9b5a38ce590cfaea4041072ea87c8dbf558 + react-native 0.57
+            // Release every dependency the SDK has with a -jitsi-XXX qualified version. This allows
+            // us to pin the dependencies and make sure they are always updated, no matter what.
 
-            project.version = "${json.version}${versionQualifier}"
-
-            project.android {
-                compileSdkVersion rootProject.ext.compileSdkVersion
-                if (rootProject.ext.has('buildToolsVersion')) {
-                    buildToolsVersion rootProject.ext.buildToolsVersion
-                }
-                defaultConfig {
-                    minSdkVersion rootProject.ext.minSdkVersion
-                    targetSdkVersion rootProject.ext.targetSdkVersion
-                }
-            }
+            project.version = "${json.version}-jitsi-${versionQualifierNumber}"
 
             task androidSourcesJar(type: Jar) {
                 classifier = 'sources'
@@ -171,53 +154,15 @@ ext {
     // of ours.
     moduleGroupId = 'com.facebook.react'
 
-    // Glide
-    excludeAppGlideModule = true
-    glideVersion = "4.7.1"  // keep in sync with react-native-fast-image
-}
+    // Maven repo where artifacts will be published
+    mavenRepo = System.env.MVN_REPO ?: ""
+    mavenUser = System.env.MVN_USER ?: ""
+    mavenPassword = System.env.MVN_PASSWORD ?: ""
 
-// If Android SDK is not installed, accept its license so that it
-// is automatically downloaded.
-afterEvaluate { project ->
-    // Either the environment variable ANDROID_HOME or the property sdk.dir in
-    // local.properties identifies where Android SDK is installed.
-    def androidHome = System.env.ANDROID_HOME
-    if (!androidHome) {
-        // ANDROID_HOME is not set. Is sdk.dir set?
-        def file = file("${project.rootDir}/local.properties")
-        def props = new Properties()
-        if (file.canRead()) {
-            file.withInputStream {
-                props.load(it)
-                androidHome = props.'sdk.dir'
-            }
-        }
-        if (!androidHome && (!file.exists() || file.canWrite())) {
-            // Neither ANDROID_HOME nor sdk.dir is set. Set sdk.dir (because
-            // environment variables cannot be set).
-            props.'sdk.dir' = "${project.buildDir}/android-sdk".toString()
-            file.withOutputStream {
-                props.store(it, null)
-                androidHome = props.'sdk.dir'
-            }
-        }
-    }
-    // If the license is not accepted, accept it so that automatic downloading
-    // kicks in.
-    // The license hash can be taken from the accepted licenses, by doing this
-    // on your local machine the file is
-    // ${androidHome}/licenses/android-sdk-license
-    if (androidHome) {
-        def dir = file("${androidHome}/licenses")
-        dir.mkdirs()
-        def file = file("${dir.path}/android-sdk-license")
-        if (!file.exists()) {
-            file.withWriter {
-                def hash = 'd56f5187479451eabf01fb78af6dfcb131a6481e'
-                it.write(hash, 0, hash.length())
-            }
-        }
-    }
+    // Libre build
+    libreBuild = (System.env.LIBRE_BUILD ?: "false").toBoolean()
+
+    googleServicesEnabled = project.file('app/google-services.json').exists() && !libreBuild
 }
 
 // Force the version of the Android build tools we have chosen on all

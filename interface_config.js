@@ -1,9 +1,8 @@
 /* eslint-disable no-unused-vars, no-var, max-len */
 
 var interfaceConfig = {
-    // TO FIX: this needs to be handled from SASS variables. There are some
-    // methods allowing to use variables both in css and js.
     DEFAULT_BACKGROUND: '#474747',
+    DEFAULT_LOGO_URL: '../images/watermark.png',
 
     /**
      * Whether or not the blurred video background for large video should be
@@ -27,16 +26,16 @@ var interfaceConfig = {
     SHOW_DEEP_LINKING_IMAGE: false,
     GENERATE_ROOMNAMES_ON_WELCOME_PAGE: true,
     DISPLAY_WELCOME_PAGE_CONTENT: true,
+    DISPLAY_WELCOME_PAGE_TOOLBAR_ADDITIONAL_CONTENT: false,
     APP_NAME: 'Jitsi Meet',
     NATIVE_APP_NAME: 'Jitsi Meet',
     PROVIDER_NAME: 'Jitsi',
-    LANG_DETECTION: false, // Allow i18n to detect the system language
-    INVITATION_POWERED_BY: true,
+    LANG_DETECTION: true, // Allow i18n to detect the system language
 
     /**
-     * If we should show authentication block in profile
+     * Hide the invite prompt in the header when alone in the meeting.
      */
-    AUTHENTICATION_ENABLE: true,
+    HIDE_INVITE_MORE_HEADER: false,
 
     /**
      * The name of the toolbar buttons to display in the toolbar. If present,
@@ -47,10 +46,10 @@ var interfaceConfig = {
      */
     TOOLBAR_BUTTONS: [
         'microphone', 'camera', 'closedcaptions', 'desktop', 'fullscreen',
-        'fodeviceselection', 'hangup', 'profile', 'info', 'chat', 'recording',
+        'fodeviceselection', 'hangup', 'profile', 'chat', 'recording',
         'livestreaming', 'etherpad', 'sharedvideo', 'settings', 'raisehand',
         'videoquality', 'filmstrip', 'invite', 'feedback', 'stats', 'shortcuts',
-        'tileview'
+        'tileview', 'videobackgroundblur', 'download', 'help', 'mute-everyone', 'security'
     ],
 
     SETTINGS_SECTIONS: [ 'devices', 'language', 'moderator', 'profile', 'calendar' ],
@@ -73,8 +72,7 @@ var interfaceConfig = {
 
     // A html text to be shown to guests on the close page, false disables it
     CLOSE_PAGE_GUEST_HINT: false,
-    RANDOM_AVATAR_URL_PREFIX: false,
-    RANDOM_AVATAR_URL_SUFFIX: false,
+    SHOW_PROMOTIONAL_CLOSE_PAGE: false,
     FILM_STRIP_MAX_HEIGHT: 120,
 
     // Enables feedback star animation.
@@ -126,7 +124,7 @@ var interfaceConfig = {
      * If indicated some of the error dialogs may point to the support URL for
      * help.
      */
-    SUPPORT_URL: 'https://github.com/jitsi/jitsi-meet/issues/new',
+    SUPPORT_URL: 'https://community.jitsi.org/',
 
     /**
      * Whether the connection indicator icon should hide itself based on
@@ -167,7 +165,49 @@ var interfaceConfig = {
      *
      * @type {boolean}
      */
-    RECENT_LIST_ENABLED: true
+    RECENT_LIST_ENABLED: true,
+
+    // Names of browsers which should show a warning stating the current browser
+    // has a suboptimal experience. Browsers which are not listed as optimal or
+    // unsupported are considered suboptimal. Valid values are:
+    // chrome, chromium, edge, electron, firefox, nwjs, opera, safari
+    OPTIMAL_BROWSERS: [ 'chrome', 'chromium', 'firefox', 'nwjs', 'electron', 'safari' ],
+
+    // Browsers, in addition to those which do not fully support WebRTC, that
+    // are not supported and should show the unsupported browser page.
+    UNSUPPORTED_BROWSERS: [],
+
+    /**
+     * A UX mode where the last screen share participant is automatically
+     * pinned. Valid values are the string "remote-only" so remote participants
+     * get pinned but not local, otherwise any truthy value for all participants,
+     * and any falsy value to disable the feature.
+     *
+     * Note: this mode is experimental and subject to breakage.
+     */
+    AUTO_PIN_LATEST_SCREEN_SHARE: 'remote-only',
+
+    /**
+     * If true, presence status: busy, calling, connected etc. is not displayed.
+     */
+    DISABLE_PRESENCE_STATUS: false,
+
+    /**
+     * If true, notifications regarding joining/leaving are no longer displayed.
+     */
+    DISABLE_JOIN_LEAVE_NOTIFICATIONS: false,
+
+    /**
+    * Decides whether the chrome extension banner should be rendered on the landing page and during the meeting.
+    * If this is set to false, the banner will not be rendered at all. If set to true, the check for extension(s)
+    * being already installed is done before rendering.
+    */
+    SHOW_CHROME_EXTENSION_BANNER: false,
+
+    /**
+     * When enabled, the kick participant button will not be presented for users without a JWT
+     */
+    // HIDE_KICK_BUTTON_FOR_GUESTS: false,
 
     /**
      * How many columns the tile view can expand to. The respected range is
@@ -186,6 +226,17 @@ var interfaceConfig = {
     // MOBILE_DOWNLOAD_LINK_IOS: 'https://itunes.apple.com/us/app/jitsi-meet/id1165103905',
 
     /**
+     * Specify Firebase dynamic link properties for the mobile apps.
+     */
+    // MOBILE_DYNAMIC_LINK: {
+    //    APN: 'org.jitsi.meet',
+    //    APP_CODE: 'w2atb',
+    //    CUSTOM_DOMAIN: undefined,
+    //    IBI: 'com.atlassian.JitsiMeet.ios',
+    //    ISI: '1165103905'
+    // },
+
+    /**
      * Specify mobile app scheme for opening the app from the mobile browser.
      */
     // APP_SCHEME: 'org.jitsi.meet',
@@ -201,6 +252,18 @@ var interfaceConfig = {
      * milliseconds, those notifications should remain displayed.
      */
     // ENFORCE_NOTIFICATION_AUTO_DISMISS_TIMEOUT: 15000,
+
+    // List of undocumented settings
+    /**
+     INDICATOR_FONT_SIZES
+     PHONE_NUMBER_REGEX
+    */
+
+    // Allow all above example options to include a trailing comma and
+    // prevent fear when commenting out the last value.
+    makeJsonParserHappy: 'even if last key had a trailing comma'
+
+    // no configuration value should follow this line.
 };
 
 /* eslint-enable no-unused-vars, no-var, max-len */

@@ -3,12 +3,11 @@
 import { NativeModules } from 'react-native';
 import type { Dispatch } from 'redux';
 
-import { getAppProp } from '../../base/app';
+import { PIP_ENABLED, getFeatureFlag } from '../../base/flags';
 import { Platform } from '../../base/react';
 
 import { ENTER_PICTURE_IN_PICTURE } from './actionTypes';
-
-const logger = require('jitsi-meet-logger').getLogger(__filename);
+import logger from './logger';
 
 /**
  * Enters (or rather initiates entering) picture-in-picture.
@@ -25,7 +24,7 @@ export function enterPictureInPicture() {
         // XXX At the time of this writing this action can only be dispatched by
         // the button which is on the conference view, which means that it's
         // fine to enter PiP mode.
-        if (getAppProp(getState, 'pictureInPictureEnabled')) {
+        if (getFeatureFlag(getState, PIP_ENABLED)) {
             const { PictureInPicture } = NativeModules;
             const p
                 = Platform.OS === 'android'

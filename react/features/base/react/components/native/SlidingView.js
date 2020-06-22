@@ -8,6 +8,7 @@ import {
     View
 } from 'react-native';
 
+import { BackButtonRegistry } from '../../../../mobile/back-button';
 import { type StyleType } from '../../../styles';
 
 import styles from './slidingviewstyles';
@@ -110,7 +111,8 @@ export default class SlidingView extends PureComponent<Props, State> {
         };
 
         // Bind event handlers so they are only bound once per instance.
-        this._onHideMenu = this._onHideMenu.bind(this);
+        this._onHardwareBackPress = this._onHardwareBackPress.bind(this);
+        this._onHide = this._onHide.bind(this);
     }
 
     /**
@@ -119,6 +121,8 @@ export default class SlidingView extends PureComponent<Props, State> {
      * @inheritdoc
      */
     componentDidMount() {
+        BackButtonRegistry.addListener(this._onHardwareBackPress, true);
+
         this._mounted = true;
         this._setShow(this.props.show);
     }
@@ -128,8 +132,12 @@ export default class SlidingView extends PureComponent<Props, State> {
      *
      * @inheritdoc
      */
-    componentDidUpdate() {
-        this._setShow(this.props.show);
+    componentDidUpdate(prevProps: Props) {
+        const { show } = this.props;
+
+        if (prevProps.show !== show) {
+            this._setShow(show);
+        }
     }
 
     /**
@@ -138,6 +146,8 @@ export default class SlidingView extends PureComponent<Props, State> {
      * @inheritdoc
      */
     componentWillUnmount() {
+        BackButtonRegistry.removeListener(this._onHardwareBackPress);
+
         this._mounted = false;
     }
 
@@ -158,10 +168,11 @@ export default class SlidingView extends PureComponent<Props, State> {
                 pointerEvents = 'box-none'
                 style = { styles.sliderViewContainer } >
                 <TouchableWithoutFeedback
-                    onPress = { this._onHideMenu } >
+                    onPress = { this._onHide } >
                     <View style = { styles.sliderViewShadow } />
                 </TouchableWithoutFeedback>
                 <Animated.View
+                    pointerEvents = 'box-none'
                     style = { this._getContentStyle() }>
                     { this.props.children }
                 </Animated.View>
@@ -210,7 +221,24 @@ export default class SlidingView extends PureComponent<Props, State> {
         return style;
     }
 
-    _onHideMenu: () => void;
+    _onHardwareBackPress: () => boolean;
+
+    /**
+     * Callback to handle the hardware back button.
+     *
+     * @returns {boolean}
+     */
+    _onHardwareBackPress() {
+        const { onHide } = this.props;
+
+        if (typeof onHide === 'function') {
+            return onHide();
+        }
+
+        return false;
+    }
+
+    _onHide: () => void;
 
     /**
      * Hides the slider.
@@ -218,15 +246,16 @@ export default class SlidingView extends PureComponent<Props, State> {
      * @private
      * @returns {void}
      */
-    _onHideMenu() {
-        this._setShow(false);
+    _onHide() {
+        this._setShow(false)
+            .then(() => {
+                const { onHide } = this.props;
 
-        const { onHide } = this.props;
-
-        onHide && onHide();
+                onHide && onHide();
+            });
     }
 
-    _setShow: (boolean) => void;
+    _setShow: (boolean) => Promise<*>;
 
     /**
      * Shows/hides the slider menu.
@@ -234,32 +263,39 @@ export default class SlidingView extends PureComponent<Props, State> {
      * @param {boolean} show - If the slider view is to be made visible,
      * {@code true}; otherwise, {@code false}.
      * @private
-     * @returns {void}
+     * @returns {Promise}
      */
     _setShow(show) {
-        if (!this._mounted) {
-            return;
-        }
+        return new Promise(resolve => {
+            if (!this._mounted) {
+                resolve();
 
-        const { positionOffset } = this.state;
-        const { position } = this.props;
-        let toValue = positionOffset;
+                return;
+            }
 
-        if (position === 'bottom' || position === 'right') {
-            toValue = -positionOffset;
-        }
+            const { positionOffset } = this.state;
+            const { position } = this.props;
+            let toValue = positionOffset;
 
-        Animated
-            .timing(
-                /* value */ this.state.sliderAnimation,
-                /* config */ {
-                    duration: 200,
-                    toValue: show ? toValue : 0,
-                    useNativeDriver: true
-                })
-            .start(({ finished }) => {
-                finished && this._mounted && !show
-                    && this.setState({ showOverlay: false });
-            });
+            if (position === 'bottom' || position === 'right') {
+                toValue = -positionOffset;
+            }
+
+            Animated
+                .timing(
+                    /* value */ this.state.sliderAnimation,
+                    /* config */ {
+                        duration: 200,
+                        toValue: show ? toValue : 0,
+                        useNativeDriver: true
+                    })
+                .start(({ finished }) => {
+                    finished && this._mounted && !show
+                        && this.setState({ showOverlay: false }, () => {
+                            this.forceUpdate();
+                        });
+                    resolve();
+                });
+        });
     }
 }

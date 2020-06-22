@@ -1,6 +1,6 @@
-import { RecordingAdapter } from './RecordingAdapter';
+import logger from '../logger';
 
-const logger = require('jitsi-meet-logger').getLogger(__filename);
+import { RecordingAdapter } from './RecordingAdapter';
 
 /**
  * Base class for {@code AudioContext}-based recording adapters.

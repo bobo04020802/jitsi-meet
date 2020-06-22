@@ -6,6 +6,7 @@ import {
     createRecordingDialogEvent,
     sendAnalytics
 } from '../../../analytics';
+import { ColorSchemeRegistry } from '../../../base/color-scheme';
 import {
     _abstractMapStateToProps
 } from '../../../base/dialog';
@@ -21,15 +22,11 @@ import {
 import { connect } from '../../../base/redux';
 import { ColorPalette, StyleType } from '../../../base/styles';
 import { authorizeDropbox, updateDropboxToken } from '../../../dropbox';
-
-import {
-    default as styles,
-    DROPBOX_LOGO,
-    JITSI_LOGO
-} from './styles';
-
 import { RECORDING_TYPES } from '../../constants';
 import { getRecordingDurationEstimation } from '../../functions';
+
+import { DROPBOX_LOGO, ICON_SHARE, JITSI_LOGO } from './styles';
+
 
 type Props = {
 
@@ -37,6 +34,11 @@ type Props = {
      * Style of the dialogs feature.
      */
     _dialogStyles: StyleType,
+
+    /**
+     * The color-schemed stylesheet of this component.
+     */
+    _styles: StyleType,
 
     /**
      * The redux dispatch function.
@@ -48,6 +50,12 @@ type Props = {
      * are enabled.
      */
     fileRecordingsServiceEnabled: boolean,
+
+    /**
+     * Whether to show the possibility to share file recording with other people (e.g. meeting participants), based on
+     * the actual implementation on the backend.
+     */
+    fileRecordingsServiceSharingEnabled: boolean,
 
     /**
      * If true the content related to the integrations will be shown.
@@ -71,9 +79,19 @@ type Props = {
     onChange: Function,
 
     /**
+     * Callback to be invoked on sharing setting change.
+     */
+    onSharingSettingChanged: Function,
+
+    /**
      * The currently selected recording service of type: RECORDING_TYPES.
      */
     selectedRecordingService: ?string,
+
+    /**
+     * Boolean to set file recording sharing on or off.
+     */
+    sharingSetting: boolean,
 
     /**
      * Number of MiB of available space in user's Dropbox account.
@@ -108,10 +126,8 @@ class StartRecordingDialogContent extends Component<Props> {
         // Bind event handler so it is only bound once for every instance.
         this._onSignIn = this._onSignIn.bind(this);
         this._onSignOut = this._onSignOut.bind(this);
-        this._onDropboxSwitchChange
-            = this._onDropboxSwitchChange.bind(this);
-        this._onRecordingServiceSwitchChange
-            = this._onRecordingServiceSwitchChange.bind(this);
+        this._onDropboxSwitchChange = this._onDropboxSwitchChange.bind(this);
+        this._onRecordingServiceSwitchChange = this._onRecordingServiceSwitchChange.bind(this);
     }
 
     /**
@@ -121,12 +137,77 @@ class StartRecordingDialogContent extends Component<Props> {
      * @returns {React$Component}
      */
     render() {
+        const { _styles: styles } = this.props;
+
         return (
             <Container
                 className = 'recording-dialog'
                 style = { styles.container }>
                 { this._renderNoIntegrationsContent() }
                 { this._renderIntegrationsContent() }
+                { this._renderFileSharingContent() }
+            </Container>
+        );
+    }
+
+    /**
+     * Renders the file recording service sharing options, if enabled.
+     *
+     * @returns {React$Component}
+     */
+    _renderFileSharingContent() {
+        if (!this.props.fileRecordingsServiceSharingEnabled) {
+            return null;
+        }
+
+        const {
+            _dialogStyles,
+            _styles: styles,
+            isValidating,
+            onSharingSettingChanged,
+            selectedRecordingService,
+            sharingSetting,
+            t
+        } = this.props;
+
+        const controlDisabled = selectedRecordingService !== RECORDING_TYPES.JITSI_REC_SERVICE;
+        let mainContainerClasses = 'recording-header recording-header-line';
+
+        if (controlDisabled) {
+            mainContainerClasses += ' recording-switch-disabled';
+        }
+
+        return (
+            <Container
+                className = { mainContainerClasses }
+                key = 'fileSharingSetting'
+                style = { [
+                    styles.header,
+                    _dialogStyles.topBorderContainer,
+                    controlDisabled ? styles.controlDisabled : null
+                ] }>
+                <Container className = 'recording-icon-container'>
+                    <Image
+                        className = 'recording-icon'
+                        src = { ICON_SHARE }
+                        style = { styles.recordingIcon } />
+                </Container>
+                <Text
+                    className = 'recording-title'
+                    style = {{
+                        ..._dialogStyles.text,
+                        ...styles.title
+                    }}>
+                    { t('recording.fileSharingdescription') }
+                </Text>
+                <Switch
+                    className = 'recording-switch'
+                    disabled = { controlDisabled || isValidating }
+                    onValueChange
+                        = { onSharingSettingChanged }
+                    style = { styles.switch }
+                    trackColor = {{ false: ColorPalette.lightGrey }}
+                    value = { !controlDisabled && sharingSetting } />
             </Container>
         );
     }
@@ -145,7 +226,7 @@ class StartRecordingDialogContent extends Component<Props> {
             return null;
         }
 
-        const { _dialogStyles, isValidating, t } = this.props;
+        const { _dialogStyles, _styles: styles, isValidating, t } = this.props;
 
         const switchContent
             = this.props.integrationsEnabled
@@ -153,18 +234,16 @@ class StartRecordingDialogContent extends Component<Props> {
                     <Switch
                         className = 'recording-switch'
                         disabled = { isValidating }
-                        onValueChange
-                            = { this._onRecordingServiceSwitchChange }
+                        onValueChange = { this._onRecordingServiceSwitchChange }
                         style = { styles.switch }
                         trackColor = {{ false: ColorPalette.lightGrey }}
-                        value = {
-                            this.props.selectedRecordingService
-                                === RECORDING_TYPES.JITSI_REC_SERVICE } />
+                        value = { this.props.selectedRecordingService === RECORDING_TYPES.JITSI_REC_SERVICE } />
                 ) : null;
 
         return (
             <Container
                 className = 'recording-header'
+                key = 'noIntegrationSetting'
                 style = { styles.header }>
                 <Container className = 'recording-icon-container'>
                     <Image
@@ -196,7 +275,7 @@ class StartRecordingDialogContent extends Component<Props> {
             return null;
         }
 
-        const { _dialogStyles, isTokenValid, isValidating, t } = this.props;
+        const { _dialogStyles, _styles: styles, isTokenValid, isValidating, t } = this.props;
 
         let content = null;
         let switchContent = null;
@@ -343,7 +422,7 @@ class StartRecordingDialogContent extends Component<Props> {
      * @returns {React$Component}
      */
     _renderSignOut() {
-        const { spaceLeft, t, userName } = this.props;
+        const { _styles: styles, spaceLeft, t, userName } = this.props;
         const duration = getRecordingDurationEstimation(spaceLeft);
 
         return (
@@ -371,7 +450,7 @@ class StartRecordingDialogContent extends Component<Props> {
         );
     }
 
-    _onSignIn: () => {};
+    _onSignIn: () => void;
 
     /**
      * Sings in a user.
@@ -379,13 +458,11 @@ class StartRecordingDialogContent extends Component<Props> {
      * @returns {void}
      */
     _onSignIn() {
-        sendAnalytics(
-            createRecordingDialogEvent('start', 'signIn.button')
-        );
+        sendAnalytics(createRecordingDialogEvent('start', 'signIn.button'));
         this.props.dispatch(authorizeDropbox());
     }
 
-    _onSignOut: () => {};
+    _onSignOut: () => void;
 
     /**
      * Sings out an user from dropbox.
@@ -393,12 +470,22 @@ class StartRecordingDialogContent extends Component<Props> {
      * @returns {void}
      */
     _onSignOut() {
-        sendAnalytics(
-            createRecordingDialogEvent('start', 'signOut.button')
-        );
+        sendAnalytics(createRecordingDialogEvent('start', 'signOut.button'));
         this.props.dispatch(updateDropboxToken());
     }
 }
 
-export default translate(
-    connect(_abstractMapStateToProps)(StartRecordingDialogContent));
+/**
+ * Maps part of the redux state to the props of this component.
+ *
+ * @param {Object} state - The Redux state.
+ * @returns {Props}
+ */
+function _mapStateToProps(state) {
+    return {
+        ..._abstractMapStateToProps(state),
+        _styles: ColorSchemeRegistry.get(state, 'StartRecordingDialogContent')
+    };
+}
+
+export default translate(connect(_mapStateToProps)(StartRecordingDialogContent));

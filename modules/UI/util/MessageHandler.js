@@ -1,13 +1,16 @@
 /* global $, APP */
-const logger = require('jitsi-meet-logger').getLogger(__filename);
 
-import jitsiLocalStorage from '../../util/JitsiLocalStorage';
+import Logger from 'jitsi-meet-logger';
+import { jitsiLocalStorage } from 'js-utils';
 
 import {
+    NOTIFICATION_TIMEOUT,
     showErrorNotification,
     showNotification,
     showWarningNotification
 } from '../../../react/features/notifications';
+
+const logger = Logger.getLogger(__filename);
 
 /**
  * Flag for enabling/disabling popups.
@@ -454,7 +457,7 @@ const messageHandler = {
             cls,
             messageKey,
             messageArguments,
-            timeout = 2500) {
+            timeout = NOTIFICATION_TIMEOUT) {
         APP.store.dispatch(showNotification({
             descriptionArguments: messageArguments,
             descriptionKey: messageKey,

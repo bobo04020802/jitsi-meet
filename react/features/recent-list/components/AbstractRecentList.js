@@ -8,7 +8,7 @@ import {
     createRecentSelectedEvent,
     sendAnalytics
 } from '../../analytics';
-import { appNavigate } from '../../app';
+import { appNavigate } from '../../app/actions';
 import {
     AbstractPage,
     Container,
@@ -85,7 +85,7 @@ export default class AbstractRecentList<P: Props> extends AbstractPage<P> {
         );
     }
 
-    _onPress: string => {};
+    _onPress: string => void;
 
     /**
      * Handles the list's navigate action.

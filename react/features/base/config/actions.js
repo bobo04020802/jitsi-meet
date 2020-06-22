@@ -1,5 +1,6 @@
 // @flow
 
+import { jitsiLocalStorage } from 'js-utils';
 import type { Dispatch } from 'redux';
 
 import { addKnownDomains } from '../known-domains';
@@ -15,15 +16,18 @@ import { setConfigFromURLParams } from './functions';
  *
  * @param {URL} locationURL - The URL of the location which necessitated the
  * loading of a configuration.
+ * @param {string} room - The name of the room (conference) for which we're loading the config for.
  * @returns {{
  *     type: CONFIG_WILL_LOAD,
- *     locationURL: URL
+ *     locationURL: URL,
+ *     room: string
  * }}
  */
-export function configWillLoad(locationURL: URL) {
+export function configWillLoad(locationURL: URL, room: string) {
     return {
         type: CONFIG_WILL_LOAD,
-        locationURL
+        locationURL,
+        room
     };
 }
 
@@ -106,11 +110,8 @@ export function storeConfig(baseURL: string, config: Object) {
         let b = false;
 
         try {
-            if (typeof window.config === 'undefined'
-                    || window.config !== config) {
-                window.localStorage.setItem(
-                    `${_CONFIG_STORE_PREFIX}/${baseURL}`,
-                    JSON.stringify(config));
+            if (typeof window.config === 'undefined' || window.config !== config) {
+                jitsiLocalStorage.setItem(`${_CONFIG_STORE_PREFIX}/${baseURL}`, JSON.stringify(config));
                 b = true;
             }
         } catch (e) {

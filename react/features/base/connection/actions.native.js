@@ -3,13 +3,13 @@
 import _ from 'lodash';
 import type { Dispatch } from 'redux';
 
-import {
-    conferenceLeft,
-    conferenceWillLeave,
-    getCurrentConference
-} from '../conference';
+import { conferenceLeft, conferenceWillLeave } from '../conference/actions';
+import { getCurrentConference } from '../conference/functions';
 import JitsiMeetJS, { JitsiConnectionEvents } from '../lib-jitsi-meet';
-import { parseURIString } from '../util';
+import {
+    getBackendSafeRoomName,
+    parseURIString
+} from '../util';
 
 import {
     CONNECTION_DISCONNECTED,
@@ -18,8 +18,8 @@ import {
     CONNECTION_WILL_CONNECT,
     SET_LOCATION_URL
 } from './actionTypes';
-
-const logger = require('jitsi-meet-logger').getLogger(__filename);
+import { JITSI_CONNECTION_URL_KEY } from './constants';
+import logger from './logger';
 
 /**
  * The error structure passed to the {@link connectionFailed} action.
@@ -79,12 +79,15 @@ export function connect(id: ?string, password: ?string) {
     return (dispatch: Dispatch<any>, getState: Function) => {
         const state = getState();
         const options = _constructOptions(state);
+        const { locationURL } = state['features/base/connection'];
         const { issuer, jwt } = state['features/base/jwt'];
         const connection
             = new JitsiMeetJS.JitsiConnection(
                 options.appId,
                 jwt && issuer && issuer !== 'anonymous' ? jwt : undefined,
                 options);
+
+        connection[JITSI_CONNECTION_URL_KEY] = locationURL;
 
         dispatch(_connectionWillConnect(connection));
 
@@ -98,7 +101,7 @@ export function connect(id: ?string, password: ?string) {
             JitsiConnectionEvents.CONNECTION_FAILED,
             _onConnectionFailed);
 
-        return connection.connect({
+        connection.connect({
             id,
             password
         });
@@ -107,13 +110,12 @@ export function connect(id: ?string, password: ?string) {
          * Dispatches {@code CONNECTION_DISCONNECTED} action when connection is
          * disconnected.
          *
-         * @param {string} message - Disconnect reason.
          * @private
          * @returns {void}
          */
-        function _onConnectionDisconnected(message: string) {
+        function _onConnectionDisconnected() {
             unsubscribe();
-            dispatch(_connectionDisconnected(connection, message));
+            dispatch(connectionDisconnected(connection));
         }
 
         /**
@@ -181,19 +183,16 @@ export function connect(id: ?string, password: ?string) {
  *
  * @param {JitsiConnection} connection - The {@code JitsiConnection} which
  * disconnected.
- * @param {string} message - Error message.
  * @private
  * @returns {{
  *     type: CONNECTION_DISCONNECTED,
- *     connection: JitsiConnection,
- *     message: string
+ *     connection: JitsiConnection
  * }}
  */
-function _connectionDisconnected(connection: Object, message: string) {
+export function connectionDisconnected(connection: Object) {
     return {
         type: CONNECTION_DISCONNECTED,
-        connection,
-        message
+        connection
     };
 }
 
@@ -284,33 +283,30 @@ function _constructOptions(state) {
     let { bosh } = options;
 
     if (bosh) {
+        const { locationURL } = state['features/base/connection'];
+
         if (bosh.startsWith('//')) {
             // By default our config.js doesn't include the protocol.
-            const { locationURL } = state['features/base/connection'];
-
             bosh = `${locationURL.protocol}${bosh}`;
         } else if (bosh.startsWith('/')) {
             // Handle relative URLs, which won't work on mobile.
-            const { locationURL } = state['features/base/connection'];
             const {
                 protocol,
-                hostname,
+                host,
                 contextRoot
             } = parseURIString(locationURL.href);
 
             // eslint-disable-next-line max-len
-            bosh = `${protocol}//${hostname}${contextRoot || '/'}${bosh.substr(1)}`;
+            bosh = `${protocol}//${host}${contextRoot || '/'}${bosh.substr(1)}`;
         }
 
         // Append room to the URL's search.
         const { room } = state['features/base/conference'];
 
-        // XXX The Jitsi Meet deployments require the room argument to be in
-        // lower case at the time of this writing but, unfortunately, they do
-        // not ignore case themselves.
-        room && (bosh += `?room=${room.toLowerCase()}`);
+        room && (bosh += `?room=${getBackendSafeRoomName(room)}`);
 
-        options.bosh = bosh;
+        // FIXME Remove deprecated 'bosh' option assignment at some point.
+        options.serviceUrl = options.bosh = bosh;
     }
 
     return options;
@@ -366,6 +362,8 @@ export function disconnect() {
 
         if (connection_) {
             promise = promise.then(() => connection_.disconnect());
+        } else {
+            logger.info('No connection found while disconnecting.');
         }
 
         return promise;

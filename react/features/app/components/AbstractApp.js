@@ -5,7 +5,6 @@ import React, { Fragment } from 'react';
 import { BaseApp } from '../../base/app';
 import { toURLString } from '../../base/util';
 import { OverlayContainer } from '../../overlay';
-
 import { appNavigate } from '../actions';
 import { getDefaultURL } from '../functions';
 

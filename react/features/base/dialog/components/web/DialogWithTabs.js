@@ -3,10 +3,10 @@
 import Tabs from '@atlaskit/tabs';
 import React, { Component } from 'react';
 
-import { StatelessDialog } from '../../../dialog';
-import { translate } from '../../../i18n';
+import { translate } from '../../../i18n/functions';
+import logger from '../../logger';
 
-const logger = require('jitsi-meet-logger').getLogger(__filename);
+import StatelessDialog from './StatelessDialog';
 
 /**
  * The type of the React {@code Component} props of {@link DialogWithTabs}.

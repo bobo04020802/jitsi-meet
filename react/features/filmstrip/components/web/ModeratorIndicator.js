@@ -2,7 +2,8 @@
 
 import React, { Component } from 'react';
 
-import BaseIndicator from './BaseIndicator';
+import { IconModerator } from '../../../base/icons';
+import { BaseIndicator } from '../../../base/react';
 
 /**
  * The type of the React {@code Component} props of {@link ModeratorIndicator}.
@@ -32,7 +33,8 @@ class ModeratorIndicator extends Component<Props> {
             <div className = 'moderator-icon right'>
                 <BaseIndicator
                     className = 'focusindicator toolbar-icon'
-                    iconClassName = 'icon-star'
+                    icon = { IconModerator }
+                    iconSize = { 13 }
                     tooltipKey = 'videothumbnail.moderator'
                     tooltipPosition = { this.props.tooltipPosition } />
             </div>

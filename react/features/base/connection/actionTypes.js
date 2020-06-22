@@ -1,10 +1,11 @@
+// @flow
+
 /**
  * The type of (redux) action which signals that a connection disconnected.
  *
  * {
  *     type: CONNECTION_DISCONNECTED,
- *     connection: JitsiConnection,
- *     message: string
+ *     connection: JitsiConnection
  * }
  */
 export const CONNECTION_DISCONNECTED = 'CONNECTION_DISCONNECTED';

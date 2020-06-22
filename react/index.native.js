@@ -1,20 +1,17 @@
 // @flow
 
-// FIXME The bundler-related (and the browser-related) polyfills were born at
-// the very early days of prototyping the execution of lib-jitsi-meet on
-// react-native. Today, the feature base/lib-jitsi-meet should not be
-// responsible for such polyfills because it is not the only feature relying on
-// them. Additionally, the polyfills are usually necessary earlier than the
-// execution of base/lib-jitsi-meet (which is understandable given that the
-// polyfills are globals). The remaining problem to be solved here is where to
-// collect the polyfills' files.
-import './features/base/lib-jitsi-meet/native/polyfills-bundler';
+// Apply all necessary polyfills as early as possible to make sure anything imported henceforth
+// sees them.
+import './features/mobile/polyfills';
 
 import React, { PureComponent } from 'react';
 import { AppRegistry } from 'react-native';
 
-import { App } from './features/app';
+import { App } from './features/app/components';
+import { _initLogging } from './features/base/logging/functions';
 import { IncomingCallApp } from './features/mobile/incoming-call';
+
+declare var __DEV__;
 
 /**
  * The type of the React {@code Component} props of {@link Root}.
@@ -48,6 +45,29 @@ class Root extends PureComponent<Props> {
         );
     }
 }
+
+// Initialize logging.
+_initLogging();
+
+// HORRIBLE HACK ALERT! React Native logs the initial props with `console.log`. Here we are quickly patching it
+// to avoid logging potentially sensitive information.
+if (!__DEV__) {
+    /* eslint-disable */
+
+    const __orig_console_log = console.log;
+    const __orig_appregistry_runapplication = AppRegistry.runApplication;
+
+    AppRegistry.runApplication = (...args) => {
+        // $FlowExpectedError
+        console.log = () => {};
+        __orig_appregistry_runapplication(...args);
+        // $FlowExpectedError
+        console.log = __orig_console_log;
+    };
+
+    /* eslint-enable */
+}
+
 
 // Register the main/root Component of JitsiMeetView.
 AppRegistry.registerComponent('App', () => Root);

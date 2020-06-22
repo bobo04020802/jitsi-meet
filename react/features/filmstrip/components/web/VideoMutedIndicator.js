@@ -2,7 +2,8 @@
 
 import React, { Component } from 'react';
 
-import BaseIndicator from './BaseIndicator';
+import { IconCameraDisabled } from '../../../base/icons';
+import { BaseIndicator } from '../../../base/react';
 
 /**
  * The type of the React {@code Component} props of {@link VideoMutedIndicator}.
@@ -30,7 +31,9 @@ class VideoMutedIndicator extends Component<Props> {
         return (
             <BaseIndicator
                 className = 'videoMuted toolbar-icon'
-                iconClassName = 'icon-camera-disabled'
+                icon = { IconCameraDisabled }
+                iconId = 'camera-disabled'
+                iconSize = { 13 }
                 tooltipKey = 'videothumbnail.videomute'
                 tooltipPosition = { this.props.tooltipPosition } />
         );

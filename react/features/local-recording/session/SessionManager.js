@@ -1,8 +1,8 @@
 /* @flow */
 
-import jitsiLocalStorage from '../../../../modules/util/JitsiLocalStorage';
+import { jitsiLocalStorage } from 'js-utils';
 
-const logger = require('jitsi-meet-logger').getLogger(__filename);
+import logger from '../logger';
 
 /**
  * Gets high precision system time.

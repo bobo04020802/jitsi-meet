@@ -7,8 +7,16 @@ import {
 } from '../../transport';
 
 import electronPopupsConfig from './electronPopupsConfig.json';
-
-const logger = require('jitsi-meet-logger').getLogger(__filename);
+import {
+    getAvailableDevices,
+    getCurrentDevices,
+    isDeviceChangeAvailable,
+    isDeviceListAvailable,
+    isMultipleAudioInputSupported,
+    setAudioInputDevice,
+    setAudioOutputDevice,
+    setVideoInputDevice
+} from './functions';
 
 const ALWAYS_ON_TOP_FILENAMES = [
     'css/all.css', 'libs/alwaysontop.min.js'
@@ -21,14 +29,23 @@ const ALWAYS_ON_TOP_FILENAMES = [
 const commands = {
     avatarUrl: 'avatar-url',
     displayName: 'display-name',
+    e2eeKey: 'e2ee-key',
     email: 'email',
     hangup: 'video-hangup',
+    muteEveryone: 'mute-everyone',
+    password: 'password',
+    sendEndpointTextMessage: 'send-endpoint-text-message',
+    sendTones: 'send-tones',
+    setVideoQuality: 'set-video-quality',
+    startRecording: 'start-recording',
+    stopRecording: 'stop-recording',
     subject: 'subject',
     submitFeedback: 'submit-feedback',
     toggleAudio: 'toggle-audio',
     toggleChat: 'toggle-chat',
     toggleFilmStrip: 'toggle-film-strip',
     toggleShareScreen: 'toggle-share-screen',
+    toggleTileView: 'toggle-tile-view',
     toggleVideo: 'toggle-video'
 };
 
@@ -40,15 +57,22 @@ const events = {
     'avatar-changed': 'avatarChanged',
     'audio-availability-changed': 'audioAvailabilityChanged',
     'audio-mute-status-changed': 'audioMuteStatusChanged',
+    'camera-error': 'cameraError',
+    'device-list-changed': 'deviceListChanged',
     'display-name-change': 'displayNameChange',
     'email-change': 'emailChange',
+    'endpoint-text-message-received': 'endpointTextMessageReceived',
     'feedback-submitted': 'feedbackSubmitted',
     'feedback-prompt-displayed': 'feedbackPromptDisplayed',
     'filmstrip-display-changed': 'filmstripDisplayChanged',
     'incoming-message': 'incomingMessage',
+    'mic-error': 'micError',
     'outgoing-message': 'outgoingMessage',
     'participant-joined': 'participantJoined',
+    'participant-kicked-out': 'participantKickedOut',
     'participant-left': 'participantLeft',
+    'participant-role-changed': 'participantRoleChanged',
+    'password-required': 'passwordRequired',
     'proxy-connection-event': 'proxyConnectionEvent',
     'video-ready-to-close': 'readyToClose',
     'video-conference-joined': 'videoConferenceJoined',
@@ -56,7 +80,10 @@ const events = {
     'video-availability-changed': 'videoAvailabilityChanged',
     'video-mute-status-changed': 'videoMuteStatusChanged',
     'screen-sharing-status-changed': 'screenSharingStatusChanged',
-    'subject-change': 'subjectChange'
+    'dominant-speaker-changed': 'dominantSpeakerChanged',
+    'subject-change': 'subjectChange',
+    'suspend-detected': 'suspendDetected',
+    'tile-view-changed': 'tileViewChanged'
 };
 
 /**
@@ -211,6 +238,12 @@ export default class JitsiMeetExternalAPI extends EventEmitter {
      * for iframe onload event.
      * @param {Array<Object>} [options.invitees] - Array of objects containing
      * information about new participants that will be invited in the call.
+     * @param {Array<Object>} [options.devices] - Array of objects containing
+     * information about the initial devices that will be used in the call.
+     * @param {Object} [options.userInfo] - Object containing information about
+     * the participant opening the meeting.
+     * @param {string}  [options.e2eeKey] - The key used for End-to-End encryption.
+     * THIS IS EXPERIMENTAL.
      */
     constructor(domain, ...args) {
         super();
@@ -224,7 +257,10 @@ export default class JitsiMeetExternalAPI extends EventEmitter {
             noSSL = false,
             jwt = undefined,
             onload = undefined,
-            invitees
+            invitees,
+            devices,
+            userInfo,
+            e2eeKey
         } = parseArguments(args);
 
         this._parentNode = parentNode;
@@ -233,7 +269,9 @@ export default class JitsiMeetExternalAPI extends EventEmitter {
             interfaceConfigOverwrite,
             jwt,
             noSSL,
-            roomName
+            roomName,
+            devices,
+            userInfo
         });
         this._createIFrame(height, width, onload);
         this._transport = new Transport({
@@ -247,6 +285,7 @@ export default class JitsiMeetExternalAPI extends EventEmitter {
         if (Array.isArray(invitees) && invitees.length > 0) {
             this.invite(invitees);
         }
+        this._tmpE2EEKey = e2eeKey;
         this._isLargeVideoVisible = true;
         this._numberOfParticipants = 0;
         this._participants = {};
@@ -273,7 +312,7 @@ export default class JitsiMeetExternalAPI extends EventEmitter {
         const frameName = `jitsiConferenceFrame${id}`;
 
         this._frame = document.createElement('iframe');
-        this._frame.allow = 'camera; microphone';
+        this._frame.allow = 'camera; microphone; display-capture';
         this._frame.src = this._url;
         this._frame.name = frameName;
         this._frame.id = frameName;
@@ -343,6 +382,30 @@ export default class JitsiMeetExternalAPI extends EventEmitter {
     }
 
     /**
+     * Getter for participant specific video element in Jitsi Meet.
+     *
+     * @param {string|undefined} participantId - Id of participant to return the video for.
+     *
+     * @returns {HTMLElement|undefined} - The requested video. Will return the local video
+     * by default if participantId is undefined.
+     */
+    _getParticipantVideo(participantId) {
+        const iframe = this.getIFrame();
+
+        if (!iframe
+                || !iframe.contentWindow
+                || !iframe.contentWindow.document) {
+            return;
+        }
+
+        if (typeof participantId === 'undefined' || participantId === this._myUserID) {
+            return iframe.contentWindow.document.getElementById('localVideo_container');
+        }
+
+        return iframe.contentWindow.document.querySelector(`#participant_${participantId} video`);
+    }
+
+    /**
      * Sets the size of the iframe element.
      *
      * @param {number|string} height - The height of the iframe.
@@ -376,11 +439,17 @@ export default class JitsiMeetExternalAPI extends EventEmitter {
             const userID = data.id;
 
             switch (name) {
-            case 'video-conference-joined':
+            case 'video-conference-joined': {
+                if (typeof this._tmpE2EEKey !== 'undefined') {
+                    this.executeCommand(commands.e2eeKey, this._tmpE2EEKey);
+                    this._tmpE2EEKey = undefined;
+                }
+
                 this._myUserID = userID;
                 this._participants[userID] = {
                     avatarURL: data.avatarURL
                 };
+            }
 
             // eslint-disable-next-line no-fallthrough
             case 'participant-joined': {
@@ -498,13 +567,13 @@ export default class JitsiMeetExternalAPI extends EventEmitter {
      * {{
      * jid: jid //the jid of the participant
      * }}
-     * {@code video-conference-joined} - receives event notifications about the
+     * {@code videoConferenceJoined} - receives event notifications about the
      * local user has successfully joined the video conference.
      * The listener will receive object with the following structure:
      * {{
      * roomName: room //the room name of the conference
      * }}
-     * {@code video-conference-left} - receives event notifications about the
+     * {@code videoConferenceLeft} - receives event notifications about the
      * local user has left the video conference.
      * The listener will receive object with the following structure:
      * {{
@@ -516,6 +585,13 @@ export default class JitsiMeetExternalAPI extends EventEmitter {
      * {{
      * on: on //whether screen sharing is on
      * }}
+     * {@code dominantSpeakerChanged} - receives event notifications about
+     * change in the dominant speaker.
+     * The listener will receive object with the following structure:
+     * {{
+     * id: participantId //participantId of the new dominant speaker
+     * }}
+     * {@code suspendDetected} - receives event notifications about detecting suspend event in host computer.
      * {@code readyToClose} - all hangup operations are completed and Jitsi Meet
      * is ready to be disposed.
      * @returns {void}
@@ -538,7 +614,7 @@ export default class JitsiMeetExternalAPI extends EventEmitter {
         this.emit('_willDispose');
         this._transport.dispose();
         this.removeAllListeners();
-        if (this._frame) {
+        if (this._frame && this._frame.parentNode) {
             this._frame.parentNode.removeChild(this._frame);
         }
     }
@@ -562,7 +638,7 @@ export default class JitsiMeetExternalAPI extends EventEmitter {
      */
     executeCommand(name, ...args) {
         if (!(name in commands)) {
-            logger.error('Not supported command name.');
+            console.error('Not supported command name.');
 
             return;
         }
@@ -594,6 +670,24 @@ export default class JitsiMeetExternalAPI extends EventEmitter {
     }
 
     /**
+     * Returns Promise that resolves with a list of available devices.
+     *
+     * @returns {Promise}
+     */
+    getAvailableDevices() {
+        return getAvailableDevices(this._transport);
+    }
+
+    /**
+     * Returns Promise that resolves with current selected devices.
+     *
+     * @returns {Promise}
+     */
+    getCurrentDevices() {
+        return getCurrentDevices(this._transport);
+    }
+
+    /**
      * Check if the audio is available.
      *
      * @returns {Promise} - Resolves with true if the audio available, with
@@ -603,6 +697,38 @@ export default class JitsiMeetExternalAPI extends EventEmitter {
         return this._transport.sendRequest({
             name: 'is-audio-available'
         });
+    }
+
+    /**
+     * Returns Promise that resolves with true if the device change is available
+     * and with false if not.
+     *
+     * @param {string} [deviceType] - Values - 'output', 'input' or undefined.
+     * Default - 'input'.
+     * @returns {Promise}
+     */
+    isDeviceChangeAvailable(deviceType) {
+        return isDeviceChangeAvailable(this._transport, deviceType);
+    }
+
+    /**
+     * Returns Promise that resolves with true if the device list is available
+     * and with false if not.
+     *
+     * @returns {Promise}
+     */
+    isDeviceListAvailable() {
+        return isDeviceListAvailable(this._transport);
+    }
+
+    /**
+     * Returns Promise that resolves with true if multiple audio input is supported
+     * and with false if not.
+     *
+     * @returns {Promise}
+     */
+    isMultipleAudioInputSupported() {
+        return isMultipleAudioInputSupported(this._transport);
     }
 
     /**
@@ -769,6 +895,42 @@ export default class JitsiMeetExternalAPI extends EventEmitter {
             data: [ event ],
             name: 'proxy-connection-event'
         });
+    }
+
+    /**
+     * Sets the audio input device to the one with the label or id that is
+     * passed.
+     *
+     * @param {string} label - The label of the new device.
+     * @param {string} deviceId - The id of the new device.
+     * @returns {Promise}
+     */
+    setAudioInputDevice(label, deviceId) {
+        return setAudioInputDevice(this._transport, label, deviceId);
+    }
+
+    /**
+     * Sets the audio output device to the one with the label or id that is
+     * passed.
+     *
+     * @param {string} label - The label of the new device.
+     * @param {string} deviceId - The id of the new device.
+     * @returns {Promise}
+     */
+    setAudioOutputDevice(label, deviceId) {
+        return setAudioOutputDevice(this._transport, label, deviceId);
+    }
+
+    /**
+     * Sets the video input device to the one with the label or id that is
+     * passed.
+     *
+     * @param {string} label - The label of the new device.
+     * @param {string} deviceId - The id of the new device.
+     * @returns {Promise}
+     */
+    setVideoInputDevice(label, deviceId) {
+        return setVideoInputDevice(this._transport, label, deviceId);
     }
 
     /**

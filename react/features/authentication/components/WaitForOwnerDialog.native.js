@@ -6,7 +6,6 @@ import type { Dispatch } from 'redux';
 import { ConfirmDialog } from '../../base/dialog';
 import { translate } from '../../base/i18n';
 import { connect } from '../../base/redux';
-
 import { cancelWaitForOwner, _openLoginDialog } from '../actions';
 
 /**
@@ -64,12 +63,14 @@ class WaitForOwnerDialog extends Component<Props> {
 
         return (
             <ConfirmDialog
+                cancelKey = 'dialog.Cancel'
                 contentKey = {
                     {
                         key: 'dialog.WaitForHostMsgWOk',
                         params: { room }
                     }
                 }
+                okKey = 'dialog.Ok'
                 onCancel = { this._onCancel }
                 onSubmit = { this._onLogin } />
         );

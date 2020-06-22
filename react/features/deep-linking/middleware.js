@@ -11,11 +11,10 @@ import { openDesktopApp } from './functions';
  * @param {Store} store - The redux store.
  * @returns {Function}
  */
-// eslint-disable-next-line no-unused-vars
 MiddlewareRegistry.register(store => next => action => {
     switch (action.type) {
     case OPEN_DESKTOP_APP:
-        openDesktopApp();
+        openDesktopApp(store.getState());
         break;
     }
 

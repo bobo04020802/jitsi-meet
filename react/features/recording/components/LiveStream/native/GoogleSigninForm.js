@@ -7,7 +7,6 @@ import { _abstractMapStateToProps } from '../../../../base/dialog';
 import { translate } from '../../../../base/i18n';
 import { connect } from '../../../../base/redux';
 import { StyleType } from '../../../../base/styles';
-
 import {
     GOOGLE_API_STATES,
     GOOGLE_SCOPE_YOUTUBE,
@@ -15,10 +14,9 @@ import {
     GoogleSignInButton,
     setGoogleAPIState
 } from '../../../../google-api';
+import logger from '../../../logger';
 
 import styles from './styles';
-
-const logger = require('jitsi-meet-logger').getLogger(__filename);
 
 /**
  * Prop type of the component {@code GoogleSigninForm}.

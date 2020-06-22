@@ -18,6 +18,9 @@
 #import <JitsiMeet/JitsiMeetView.h>
 #import <JitsiMeet/JitsiMeetViewDelegate.h>
 #import <JitsiMeet/JitsiMeetConferenceOptions.h>
+#import <JitsiMeet/JitsiMeetLogger.h>
+#import <JitsiMeet/JitsiMeetBaseLogHandler.h>
+#import <JitsiMeet/InfoPlistUtil.h>
 
 
 @interface JitsiMeet : NSObject
@@ -35,32 +38,33 @@
  * List of domains used for universal linking.
  */
 @property (copy, nonatomic, nullable) NSArray<NSString *> *universalLinkDomains;
-
 /**
  * Default conference options used for all conferences. These options will be merged
  * with those passed to JitsiMeetView.join when joining a conference.
  */
 @property (nonatomic, nullable) JitsiMeetConferenceOptions *defaultConferenceOptions;
 
-#pragma mak - This class is a singleton
+#pragma mark - This class is a singleton
 
-+ (instancetype)sharedInstance;
++ (instancetype _Nonnull)sharedInstance;
 
 #pragma mark - Methods that the App delegate must call
 
 -             (BOOL)application:(UIApplication *_Nonnull)application
   didFinishLaunchingWithOptions:(NSDictionary *_Nonnull)launchOptions;
 
--    (BOOL)application:(UIApplication * _Nonnull)application
-  continueUserActivity:(NSUserActivity * _Nonnull)userActivity
-    restorationHandler:(void (^ _Nullable)(NSArray * _Nullable))restorationHandler;
+-    (BOOL)application:(UIApplication *_Nonnull)application
+  continueUserActivity:(NSUserActivity *_Nonnull)userActivity
+    restorationHandler:(void (^_Nullable)(NSArray<id<UIUserActivityRestoring>> *_Nonnull))restorationHandler;
 
-- (BOOL)application:(UIApplication *)app
-            openURL:(NSURL *)url
-            options:(NSDictionary<UIApplicationOpenURLOptionsKey,id> *)options;
+- (BOOL)application:(UIApplication *_Nonnull)app
+            openURL:(NSURL *_Nonnull)url
+            options:(NSDictionary<UIApplicationOpenURLOptionsKey,id> *_Nonnull)options;
 
 #pragma mark - Utility methods
 
-- (JitsiMeetConferenceOptions *)getInitialConferenceOptions;
+- (JitsiMeetConferenceOptions *_Nonnull)getInitialConferenceOptions;
+
+- (BOOL)isCrashReportingDisabled;
 
 @end

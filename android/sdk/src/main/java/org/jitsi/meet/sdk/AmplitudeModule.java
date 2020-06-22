@@ -16,6 +16,12 @@
 
 package org.jitsi.meet.sdk;
 
+import android.annotation.SuppressLint;
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.provider.Settings;
+import android.text.TextUtils;
+
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
@@ -24,6 +30,7 @@ import com.facebook.react.bridge.ReadableMap;
 import com.amplitude.api.Amplitude;
 import com.facebook.react.module.annotations.ReactModule;
 
+import org.jitsi.meet.sdk.log.JitsiMeetLogger;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -35,6 +42,8 @@ class AmplitudeModule
         extends ReactContextBaseJavaModule {
 
     public static final String NAME = "Amplitude";
+    public static final String JITSI_PREFERENCES = "jitsi-preferences";
+    public static final String AMPLITUDE_DEVICE_ID_KEY = "amplitudeDeviceId";
 
     public AmplitudeModule(ReactApplicationContext reactContext) {
         super(reactContext);
@@ -48,8 +57,31 @@ class AmplitudeModule
      * @param apiKey The API_KEY of the Amplitude project.
      */
     @ReactMethod
+    @SuppressLint("HardwareIds")
     public void init(String instanceName, String apiKey) {
         Amplitude.getInstance(instanceName).initialize(getCurrentActivity(), apiKey);
+
+        // Set the device ID to something consistent.
+        SharedPreferences sharedPreferences = getReactApplicationContext().getSharedPreferences(JITSI_PREFERENCES, Context.MODE_PRIVATE);
+        String android_id = sharedPreferences.getString(AMPLITUDE_DEVICE_ID_KEY, "");
+        if (!TextUtils.isEmpty(android_id)) {
+            Amplitude.getInstance(instanceName).setDeviceId(android_id);
+        } else {
+            String amplitudeId = Amplitude.getInstance(instanceName).getDeviceId();
+            SharedPreferences.Editor editor = sharedPreferences.edit();
+            editor.putString(JITSI_PREFERENCES, amplitudeId).apply();
+        }
+    }
+
+    /**
+     * Sets the user ID for an Amplitude instance.
+     *
+     * @param instanceName The name of the Amplitude instance.
+     * @param userId The new value for the user ID.
+     */
+    @ReactMethod
+    public void setUserId(String instanceName, String userId) {
+            Amplitude.getInstance(instanceName).setUserId(userId);
     }
 
     /**
@@ -79,7 +111,7 @@ class AmplitudeModule
             JSONObject eventProps = new JSONObject(eventPropsString);
             Amplitude.getInstance(instanceName).logEvent(eventType, eventProps);
         } catch (JSONException e) {
-            e.printStackTrace();
+            JitsiMeetLogger.e(e, "Error logging event");
         }
     }
 

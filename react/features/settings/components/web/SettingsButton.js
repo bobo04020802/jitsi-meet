@@ -2,11 +2,11 @@
 
 import { createToolbarEvent, sendAnalytics } from '../../../analytics';
 import { translate } from '../../../base/i18n';
+import { IconSettings } from '../../../base/icons';
 import { connect } from '../../../base/redux';
 import { AbstractButton } from '../../../base/toolbox';
 import type { AbstractButtonProps } from '../../../base/toolbox';
 import { openDeviceSelectionPopup } from '../../../device-selection';
-
 import { openSettingsDialog } from '../../actions';
 import { SETTINGS_TABS } from '../../constants';
 
@@ -38,7 +38,7 @@ type Props = AbstractButtonProps & {
  */
 class SettingsButton extends AbstractButton<Props, *> {
     accessibilityLabel = 'toolbar.accessibilityLabel.Settings';
-    iconName = 'icon-settings';
+    icon = IconSettings;
     label = 'toolbar.Settings';
     tooltip = 'toolbar.Settings';
 

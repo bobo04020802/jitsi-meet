@@ -1,8 +1,10 @@
 // @flow
 
-import { BoxModel, ColorPalette, createStyleSheet } from '../../base/styles';
+import { StyleSheet } from 'react-native';
 
-export const PLACEHOLDER_TEXT_COLOR = 'rgba(255, 255, 255, 0.3)';
+import { BoxModel, ColorPalette } from '../../base/styles';
+
+export const PLACEHOLDER_TEXT_COLOR = 'rgba(255, 255, 255, 0.5)';
 
 export const SIDEBAR_AVATAR_SIZE = 100;
 
@@ -21,7 +23,7 @@ const TEXT_COLOR = ColorPalette.white;
  * The styles of the React {@code Components} of the feature welcome including
  * {@code WelcomePage} and {@code BlankPage}.
  */
-export default createStyleSheet({
+export default {
 
     /**
      * The audio-video switch itself.
@@ -39,11 +41,14 @@ export default createStyleSheet({
     },
 
     /**
-     * Style of the avatar in te side bar.
+     * View that is rendered when there is no welcome page.
      */
-    avatar: {
-        alignSelf: 'center',
-        flex: 0
+    blankPageWrapper: {
+        ...StyleSheet.absoluteFillObject,
+        alignItems: 'center',
+        flex: 1,
+        flexDirection: 'column',
+        justifyContent: 'center'
     },
 
     /**
@@ -57,14 +62,6 @@ export default createStyleSheet({
         height: 30,
         justifyContent: 'center',
         paddingHorizontal: 20
-    },
-
-    /**
-     * Renders the button visually disabled.
-     */
-    buttonDisabled: {
-        backgroundColor: '#cccccc',
-        borderColor: '#999999'
     },
 
     /**
@@ -86,6 +83,12 @@ export default createStyleSheet({
         textAlign: 'center'
     },
 
+    enterRoomText: {
+        color: TEXT_COLOR,
+        fontSize: 18,
+        marginBottom: BoxModel.margin
+    },
+
     /**
      * The welcome screen header style.
      */
@@ -105,15 +108,8 @@ export default createStyleSheet({
      * Container for the hint box.
      */
     hintContainer: {
-        backgroundColor: ColorPalette.white,
-        borderColor: ColorPalette.white,
-        borderRadius: 4,
-        borderWidth: 1,
         flexDirection: 'column',
-        marginVertical: 5,
-        overflow: 'hidden',
-        paddingHorizontal: BoxModel.padding,
-        paddingVertical: 2 * BoxModel.padding
+        overflow: 'hidden'
     },
 
     /**
@@ -145,6 +141,16 @@ export default createStyleSheet({
         padding: BoxModel.padding
     },
 
+    messageContainer: {
+        backgroundColor: ColorPalette.white,
+        borderColor: ColorPalette.white,
+        borderRadius: 4,
+        borderWidth: 1,
+        marginVertical: 5,
+        paddingHorizontal: BoxModel.padding,
+        paddingVertical: 2 * BoxModel.padding
+    },
+
     /**
      * The style of the top-level container/{@code View} of
      * {@code LocalVideoTrackUnderlay}.
@@ -161,6 +167,21 @@ export default createStyleSheet({
     page: {
         flex: 1,
         flexDirection: 'column'
+    },
+
+    /**
+     * The styles for reduced UI mode.
+     */
+    reducedUIContainer: {
+        alignItems: 'center',
+        backgroundColor: ColorPalette.blue,
+        flex: 1,
+        justifyContent: 'center'
+    },
+
+    reducedUIText: {
+        color: TEXT_COLOR,
+        fontSize: 12
     },
 
     /**
@@ -262,6 +283,23 @@ export default createStyleSheet({
         textAlign: 'center'
     },
 
+    insecureRoomNameWarningContainer: {
+        alignItems: 'center',
+        flexDirection: 'row',
+        paddingHorizontal: 5
+    },
+
+    insecureRoomNameWarningIcon: {
+        color: ColorPalette.warning,
+        fontSize: 24,
+        marginRight: 10
+    },
+
+    insecureRoomNameWarningText: {
+        color: ColorPalette.warning,
+        flex: 1
+    },
+
     /**
      * The style of the top-level container of {@code WelcomePage}.
      */
@@ -269,4 +307,4 @@ export default createStyleSheet({
         backgroundColor: ColorPalette.blue,
         overflow: 'hidden'
     }
-});
+};

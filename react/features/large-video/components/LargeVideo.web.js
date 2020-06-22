@@ -3,9 +3,35 @@
 import React, { Component } from 'react';
 
 import { Watermarks } from '../../base/react';
+import { connect } from '../../base/redux';
+import { fetchCustomBrandingData } from '../../dynamic-branding';
 import { Captions } from '../../subtitles/';
 
 declare var interfaceConfig: Object;
+
+type Props = {
+
+    /**
+     * The user selected background color.
+     */
+     _customBackgroundColor: string,
+
+    /**
+     * The user selected background image url.
+     */
+     _customBackgroundImageUrl: string,
+
+    /**
+     * Fetches the branding data.
+     */
+    _fetchCustomBrandingData: Function,
+
+    /**
+     * Used to determine the value of the autoplay attribute of the underlying
+     * video element.
+     */
+    _noAutoPlayVideo: boolean
+}
 
 /**
  * Implements a React {@link Component} which represents the large video (a.k.a.
@@ -13,7 +39,16 @@ declare var interfaceConfig: Object;
  *
  * @extends Component
  */
-export default class LargeVideo extends Component<{}> {
+class LargeVideo extends Component<Props> {
+    /**
+     * Implements React's {@link Component#componentDidMount}.
+     *
+     * @inheritdoc
+     */
+    componentDidMount() {
+        this.props._fetchCustomBrandingData();
+    }
+
     /**
      * Implements React's {@link Component#render()}.
      *
@@ -21,10 +56,13 @@ export default class LargeVideo extends Component<{}> {
      * @returns {React$Element}
      */
     render() {
+        const style = this._getCustomSyles();
+
         return (
             <div
                 className = 'videocontainer'
-                id = 'largeVideoContainer'>
+                id = 'largeVideoContainer'
+                style = { style }>
                 <div id = 'sharedVideo'>
                     <div id = 'sharedVideoIFrame' />
                 </div>
@@ -51,15 +89,60 @@ export default class LargeVideo extends Component<{}> {
                       */}
                     <div id = 'largeVideoWrapper'>
                         <video
-                            autoPlay = { true }
+                            autoPlay = { !this.props._noAutoPlayVideo }
                             id = 'largeVideo'
-                            muted = { true } />
+                            muted = { true }
+                            playsInline = { true } /* for Safari on iOS to work */ />
                     </div>
                 </div>
                 { interfaceConfig.DISABLE_TRANSCRIPTION_SUBTITLES
                     || <Captions /> }
-                <span id = 'localConnectionMessage' />
             </div>
         );
     }
+
+    /**
+     * Creates the custom styles object.
+     *
+     * @private
+     * @returns {Object}
+     */
+    _getCustomSyles() {
+        const styles = {};
+        const { _customBackgroundColor, _customBackgroundImageUrl } = this.props;
+
+        styles.backgroundColor = _customBackgroundColor || interfaceConfig.DEFAULT_BACKGROUND;
+
+        if (_customBackgroundImageUrl) {
+            styles.backgroundImage = `url(${_customBackgroundImageUrl})`;
+            styles.backgroundSize = 'cover';
+        }
+
+        return styles;
+    }
 }
+
+
+/**
+ * Maps (parts of) the Redux state to the associated LargeVideo props.
+ *
+ * @param {Object} state - The Redux state.
+ * @private
+ * @returns {Props}
+ */
+function _mapStateToProps(state) {
+    const testingConfig = state['features/base/config'].testing;
+    const { backgroundColor, backgroundImageUrl } = state['features/dynamic-branding'];
+
+    return {
+        _customBackgroundColor: backgroundColor,
+        _customBackgroundImageUrl: backgroundImageUrl,
+        _noAutoPlayVideo: testingConfig?.noAutoPlayVideo
+    };
+}
+
+const _mapDispatchToProps = {
+    _fetchCustomBrandingData: fetchCustomBrandingData
+};
+
+export default connect(_mapStateToProps, _mapDispatchToProps)(LargeVideo);

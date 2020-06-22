@@ -3,8 +3,7 @@
 import { StyleSheet } from 'react-native';
 
 import { ColorSchemeRegistry, schemeColor } from '../../../color-scheme';
-import { BoxModel, ColorPalette, createStyleSheet } from '../../../styles';
-
+import { BoxModel, ColorPalette } from '../../../styles';
 import { PREFERRED_DIALOG_SIZE } from '../../constants';
 
 const BORDER_RADIUS = 5;
@@ -27,36 +26,32 @@ export const PLACEHOLDER_COLOR = ColorPalette.lightGrey;
  * been implemented as per the Material Design guidelines:
  * {@link https://material.io/guidelines/components/bottom-sheets.html}.
  */
-export const bottomSheetStyles = createStyleSheet({
-    /**
-     * Style for a backdrop which dims the view in the background. This view
-     * will also be clickable. The backgroundColor is applied to the overlay
-     * view instead, so the modal animation doesn't affect the backdrop.
-     */
-    backdrop: {
-        ...StyleSheet.absoluteFillObject
+export const bottomSheetStyles = {
+    sheetAreaCover: {
+        backgroundColor: ColorPalette.transparent,
+        flex: 1
+    },
+
+    scrollView: {
+        paddingHorizontal: MD_ITEM_MARGIN_PADDING
     },
 
     /**
      * Style for the container of the sheet.
      */
-    container: {
-        alignItems: 'flex-end',
+    sheetContainer: {
+        alignItems: 'stretch',
         flex: 1,
-        flexDirection: 'row',
-        justifyContent: 'center'
+        flexDirection: 'column',
+        justifyContent: 'flex-end'
     },
 
-    /**
-     * Style for an overlay on top of which the sheet will be displayed.
-     */
-    overlay: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(127, 127, 127, 0.6)'
+    sheetItemContainer: {
+        flex: -1
     }
-});
+};
 
-export const brandedDialog = createStyleSheet({
+export const brandedDialog = {
 
     /**
      * The style of bold {@code Text} rendered by the {@code Dialog}s of the
@@ -101,8 +96,12 @@ export const brandedDialog = createStyleSheet({
         flexDirection: 'row',
         justifyContent: 'center',
         padding: 30
+    },
+
+    overlayTouchable: {
+        ...StyleSheet.absoluteFillObject
     }
-});
+};
 
 /**
  * Reusable (colored) style for text in any branded dialogs.
@@ -113,7 +112,7 @@ const brandedDialogText = {
     textAlign: 'center'
 };
 
-export const inputDialog = createStyleSheet({
+export const inputDialog = {
     bottomField: {
         marginBottom: 0
     },
@@ -121,8 +120,14 @@ export const inputDialog = createStyleSheet({
     fieldWrapper: {
         ...brandedDialog.mainWrapper,
         paddingBottom: BoxModel.padding * 2
+    },
+
+    formMessage: {
+        alignSelf: 'flex-start',
+        fontStyle: 'italic',
+        margin: BoxModel.margin
     }
-});
+};
 
 /**
  * Default styles for the items of a {@code BottomSheet}-based menu.
@@ -131,48 +136,53 @@ export const inputDialog = createStyleSheet({
  * {@link https://material.io/guidelines/components/bottom-sheets.html}.
  */
 ColorSchemeRegistry.register('BottomSheet', {
-    /**
-     * Style for the {@code Icon} element in a generic item of the menu.
-     */
-    iconStyle: {
-        color: schemeColor('icon'),
-        fontSize: 24
+    buttons: {
+        /**
+         * Style for the {@code Icon} element in a generic item of the menu.
+         */
+        iconStyle: {
+            color: schemeColor('icon'),
+            fontSize: 24
+        },
+
+        /**
+         * Style for the label in a generic item rendered in the menu.
+         */
+        labelStyle: {
+            color: schemeColor('text'),
+            flexShrink: 1,
+            fontSize: MD_FONT_SIZE,
+            marginLeft: 32,
+            opacity: 0.90
+        },
+
+        /**
+         * Container style for a generic item rendered in the menu.
+         */
+        style: {
+            alignItems: 'center',
+            flexDirection: 'row',
+            height: MD_ITEM_HEIGHT
+        },
+
+        /**
+         * Additional style that is not directly used as a style object.
+         */
+        underlayColor: ColorPalette.overflowMenuItemUnderlay
     },
 
-    /**
-     * Style for the label in a generic item rendered in the menu.
-     */
-    labelStyle: {
-        color: schemeColor('label'),
-        flexShrink: 1,
-        fontSize: MD_FONT_SIZE,
-        marginLeft: 32,
-        opacity: 0.90
+    expandIcon: {
+        color: schemeColor('icon'),
+        fontSize: 48,
+        opacity: 0.8
     },
 
     /**
      * Bottom sheet's base style.
      */
     sheet: {
-        backgroundColor: schemeColor('background'),
-        flex: 1,
-        paddingHorizontal: MD_ITEM_MARGIN_PADDING,
-        paddingVertical: 8
-    },
-
-    /**
-     * Container style for a generic item rendered in the menu.
-     */
-    style: {
-        alignItems: 'center',
-        flexDirection: 'row',
-        height: MD_ITEM_HEIGHT
-    },
-
-    /**
-     * Additional style that is not directly used as a style object.
-     */
-    underlayColor: ColorPalette.overflowMenuItemUnderlay
+        backgroundColor: schemeColor('background')
+    }
 });
 
 /**
@@ -243,5 +253,10 @@ ColorSchemeRegistry.register('Dialog', {
 
     text: {
         ...brandedDialogText
+    },
+
+    topBorderContainer: {
+        borderTopColor: schemeColor('border'),
+        borderTopWidth: 1
     }
 });

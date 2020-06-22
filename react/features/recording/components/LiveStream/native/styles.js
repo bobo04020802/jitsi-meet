@@ -90,9 +90,10 @@ export default createStyleSheet({
         alignSelf: 'stretch',
         borderColor: ColorPalette.lightGrey,
         borderBottomWidth: 1,
-        color: ColorPalette.white,
+        fontSize: 14,
         height: 40,
-        marginBottom: 5
+        marginBottom: 5,
+        textAlign: 'left'
     },
 
     /**
@@ -142,6 +143,13 @@ export default createStyleSheet({
         borderRadius: 3,
         borderWidth: 1,
         flexDirection: 'column'
+    },
+
+    /**
+     * Terms and Conditions texts.
+     */
+    tcText: {
+        textAlign: 'right'
     },
 
     text: {

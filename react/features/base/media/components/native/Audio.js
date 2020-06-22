@@ -2,9 +2,8 @@
 
 import Sound from 'react-native-sound';
 
+import logger from '../../logger';
 import AbstractAudio from '../AbstractAudio';
-
-const logger = require('jitsi-meet-logger').getLogger(__filename);
 
 /**
  * The React Native/mobile {@link Component} which is similar to Web's

@@ -15,8 +15,7 @@ import {
     signIn
 } from '../../../calendar-sync';
 import { GoogleSignInButton } from '../../../google-api';
-
-const logger = require('jitsi-meet-logger').getLogger(__filename);
+import logger from '../../logger';
 
 declare var interfaceConfig: Object;
 
@@ -285,7 +284,7 @@ function _mapStateToProps(state) {
         googleApiApplicationClientID,
         microsoftApiApplicationClientID
     } = state['features/base/config'];
-    const calendarEnabled = isCalendarEnabled();
+    const calendarEnabled = isCalendarEnabled(state);
 
     return {
         _appName: interfaceConfig.APP_NAME,

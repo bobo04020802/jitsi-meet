@@ -1,5 +1,8 @@
 // @flow
 
+import { CHAT_ENABLED, getFeatureFlag } from '../../../base/flags';
+import { IconChat, IconChatUnread } from '../../../base/icons';
+import { setActiveModalId } from '../../../base/modal';
 import { getLocalParticipant } from '../../../base/participants';
 import { connect } from '../../../base/redux';
 import {
@@ -7,8 +10,7 @@ import {
     type AbstractButtonProps
 } from '../../../base/toolbox';
 import { openDisplayNamePrompt } from '../../../display-name';
-
-import { toggleChat } from '../../actions';
+import { CHAT_VIEW_MODAL_ID } from '../../constants';
 import { getUnreadCount } from '../../functions';
 
 type Props = AbstractButtonProps & {
@@ -42,9 +44,9 @@ type Props = AbstractButtonProps & {
  */
 class ChatButton extends AbstractButton<Props, *> {
     accessibilityLabel = 'toolbar.accessibilityLabel.chat';
-    iconName = 'chat';
+    icon = IconChat;
     label = 'toolbar.chat';
-    toggledIconName = 'chat-unread';
+    toggledIcon = IconChatUnread;
 
     /**
      * Handles clicking / pressing the button, and opens the appropriate dialog.
@@ -92,11 +94,11 @@ function _mapDispatchToProps(dispatch: Function) {
          * @returns {void}
          */
         _displayChat() {
-            dispatch(toggleChat());
+            dispatch(setActiveModalId(CHAT_VIEW_MODAL_ID));
         },
 
         /**
-         * Displays a diaply name prompt.
+         * Displays a display name prompt.
          *
          * @param {Function} onPostSubmit - The function to invoke after a
          * succesfulsetting of the display name.
@@ -112,16 +114,18 @@ function _mapDispatchToProps(dispatch: Function) {
  * Maps part of the redux state to the component's props.
  *
  * @param {Object} state - The Redux state.
- * @returns {{
- *     _unreadMessageCount
- * }}
+ * @param {Object} ownProps - The properties explicitly passed to the component instance.
+ * @returns {Props}
  */
-function _mapStateToProps(state) {
+function _mapStateToProps(state, ownProps) {
     const localParticipant = getLocalParticipant(state);
+    const enabled = getFeatureFlag(state, CHAT_ENABLED, true);
+    const { visible = enabled } = ownProps;
 
     return {
         _showNamePrompt: !localParticipant.name,
-        _unreadMessageCount: getUnreadCount(state)
+        _unreadMessageCount: getUnreadCount(state),
+        visible
     };
 }
 

@@ -3,47 +3,6 @@
     display: flex;
     font-size: 14px;
 
-    .info-dialog-action-link {
-        display: inline-block;
-        line-height: 1.5em;
-
-        a {
-            cursor: pointer;
-            vertical-align: middle;
-        }
-    }
-
-    .info-dialog-action-link:before {
-        color: $linkFontColor;
-        content: '\2022';
-        font-size: 1.5em;
-        padding: 0 10px;
-        vertical-align: middle;
-    }
-
-    .info-dialog-action-link:first-child:before {
-        content: '';
-        padding: 0;
-    }
-
-    .info-dialog-action-links {
-        font-weight: bold;
-        margin-top: 10px;
-        white-space: nowrap;
-    }
-
-    .info-dialog-action-separator {
-        display: inline-block;
-    }
-
-    .info-dialog-copy-element {
-        opacity: 0;
-        pointer-events: none;
-        position: absolute;
-        -webkit-user-select: text;
-        user-select: text;
-    }
-
     .info-dialog-column {
         margin-right: 10px;
         overflow: hidden;
@@ -54,41 +13,6 @@
         a:hover {
             text-decoration: none;
         }
-    }
-
-    .info-dialog-conference-url,
-    .info-dialog-live-stream-url {
-        width: max-content;
-        width: -moz-max-content;
-        width: -webkit-max-content;
-        word-break: break-all;
-        max-width: 400px;
-    }
-
-    .info-dialog-dial-in {
-        word-break: break-all;
-
-        .conference-id,
-        .phone-number {
-            user-select: text;
-        }
-    }
-
-    .info-dialog-icon {
-        color: #6453C0;
-        font-size: 16px;
-        min-width: 30px;
-    }
-
-    .info-dialog-url-text,
-    .info-dialog-url-text:hover {
-        color: inherit;
-        cursor: inherit;
-    }
-
-    .info-dialog-title {
-        font-weight: bold;
-        margin-bottom: 10px;
     }
 
     .info-dialog-password,
@@ -114,6 +38,7 @@
     }
 
     .info-password-input {
+        width: 100%;
         background-color: transparent;
         border: none;
         color: inherit;
@@ -129,15 +54,13 @@
     margin-top: 20px;
     font-size: 12px;
     line-height: 24px;
-    border-collapse: separate;
-    border-spacing: 0 5px;
+    border-collapse: collapse;
 
     thead {
         text-align: left;
     }
 
-    td,
-    th {
+    tr {
         border-bottom: 1px solid #d1dbe8;
     }
 
@@ -185,6 +108,7 @@
     font-size: 12px;
     max-height: 100%;
     overflow: auto;
+    padding: 15pt;
     position: absolute;
     transform: translateY(-50%);
     top: 50%;

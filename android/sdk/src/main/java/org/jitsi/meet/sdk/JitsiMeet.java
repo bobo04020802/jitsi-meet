@@ -16,11 +16,14 @@
  */
 package org.jitsi.meet.sdk;
 
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 
 import com.facebook.react.ReactInstanceManager;
 
 public class JitsiMeet {
+
     /**
      * Default {@link JitsiMeetConferenceOptions} which will be used for all conferences. When
      * joining a conference these options will be merged with the ones passed to
@@ -33,7 +36,19 @@ public class JitsiMeet {
     }
 
     public static void setDefaultConferenceOptions(JitsiMeetConferenceOptions options) {
+        if (options != null && options.getRoom() != null) {
+            throw new RuntimeException("'room' must be null in the default conference options");
+        }
         defaultConferenceOptions = options;
+    }
+
+    /**
+     * Returns the current conference URL as a string.
+     *
+     * @return the current conference URL.
+     */
+    public static String getCurrentConference() {
+        return OngoingConferenceTracker.getInstance().getCurrentConference();
     }
 
     /**
@@ -59,5 +74,11 @@ public class JitsiMeet {
         if (reactInstanceManager != null) {
             reactInstanceManager.showDevOptionsDialog();
         }
+    }
+
+    public static boolean isCrashReportingDisabled(Context context) {
+        SharedPreferences preferences = context.getSharedPreferences("jitsi-default-preferences", Context.MODE_PRIVATE);
+        String value = preferences.getString("isCrashReportingDisabled", "");
+        return Boolean.parseBoolean(value);
     }
 }

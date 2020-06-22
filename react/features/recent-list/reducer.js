@@ -1,8 +1,10 @@
 // @flow
+
+import { jitsiLocalStorage } from 'js-utils';
+
 import { APP_WILL_MOUNT } from '../base/app';
 import { getURLWithoutParamsNormalized } from '../base/connection';
-import { ReducerRegistry } from '../base/redux';
-import { PersistenceRegistry } from '../base/storage';
+import { PersistenceRegistry, ReducerRegistry } from '../base/redux';
 
 import {
     _STORE_CURRENT_CONFERENCE,
@@ -10,8 +12,7 @@ import {
     DELETE_RECENT_LIST_ENTRY
 } from './actionTypes';
 import { isRecentListEnabled } from './functions';
-
-const logger = require('jitsi-meet-logger').getLogger(__filename);
+import logger from './logger';
 
 /**
  * The default/initial redux state of the feature {@code recent-list}.
@@ -120,15 +121,16 @@ function _appWillMount(state) {
  * @returns {Array<Object>}
  */
 function _getLegacyRecentRoomList(): Array<Object> {
-    try {
-        const str = window.localStorage.getItem(LEGACY_STORAGE_KEY);
+    const str = jitsiLocalStorage.getItem(LEGACY_STORAGE_KEY);
 
-        if (str) {
+    if (str) {
+        try {
             return JSON.parse(str);
+        } catch (error) {
+            logger.warn('Failed to parse legacy recent-room list!');
         }
-    } catch (error) {
-        logger.warn('Failed to parse legacy recent-room list!');
     }
+
 
     return [];
 }

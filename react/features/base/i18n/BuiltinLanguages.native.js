@@ -7,16 +7,40 @@ import i18next from 'i18next';
  */
 const _LANGUAGES = {
 
+    // Afrikaans
+    'af': {
+        languages: require('../../../../lang/languages-af'),
+        main: require('../../../../lang/main-af')
+    },
+
+    // Arabic
+    'ar': {
+        languages: require('../../../../lang/languages-ar'),
+        main: require('../../../../lang/main-ar')
+    },
+
     // Bulgarian
     'bg': {
         languages: require('../../../../lang/languages-bg'),
         main: require('../../../../lang/main-bg')
     },
 
+    // Catalan
+    'ca': {
+        languages: require('../../../../lang/languages-ca'),
+        main: require('../../../../lang/main-ca')
+    },
+
     // German
     'de': {
         languages: require('../../../../lang/languages-de'),
         main: require('../../../../lang/main-de')
+    },
+
+    // English (United Kingdom)
+    'enGB': {
+        languages: require('../../../../lang/languages-enGB'),
+        main: require('../../../../lang/main-enGB')
     },
 
     // Esperanto
@@ -31,16 +55,46 @@ const _LANGUAGES = {
         main: require('../../../../lang/main-es')
     },
 
+    // Spanish (Latin America)
+    'esUS': {
+        languages: require('../../../../lang/languages-esUS'),
+        main: require('../../../../lang/main-esUS')
+    },
+
+    // Estonian
+    'et': {
+        languages: require('../../../../lang/languages-et'),
+        main: require('../../../../lang/main-et')
+    },
+
+    // Finnish
+    'fi': {
+        languages: require('../../../../lang/languages-fi'),
+        main: require('../../../../lang/main-fi')
+    },
+
     // French
     'fr': {
         languages: require('../../../../lang/languages-fr'),
         main: require('../../../../lang/main-fr')
     },
 
-    // Armenian
-    'hy': {
-        languages: require('../../../../lang/languages-hy'),
-        main: require('../../../../lang/main-hy')
+    // French (Canadian)
+    'frCA': {
+        languages: require('../../../../lang/languages-frCA'),
+        main: require('../../../../lang/main-frCA')
+    },
+
+    // Croatian
+    'hr': {
+        languages: require('../../../../lang/languages-hr'),
+        main: require('../../../../lang/main-hr')
+    },
+
+    // Hungarian
+    'hu': {
+        languages: require('../../../../lang/languages-hu'),
+        main: require('../../../../lang/main-hu')
     },
 
     // Italian
@@ -49,10 +103,22 @@ const _LANGUAGES = {
         main: require('../../../../lang/main-it')
     },
 
-    // Norwegian Bokmal
-    'nb': {
-        languages: require('../../../../lang/languages-nb'),
-        main: require('../../../../lang/main-nb')
+    // Japanese
+    'ja': {
+        languages: require('../../../../lang/languages-ja'),
+        main: require('../../../../lang/main-ja')
+    },
+
+    // Korean
+    'ko': {
+        languages: require('../../../../lang/languages-ko'),
+        main: require('../../../../lang/main-ko')
+    },
+
+    // Dutch
+    'nl': {
+        languages: require('../../../../lang/languages-nl'),
+        main: require('../../../../lang/main-nl')
     },
 
     // Occitan
@@ -73,6 +139,18 @@ const _LANGUAGES = {
         main: require('../../../../lang/main-ptBR')
     },
 
+    // Sardinian (Sardinia)
+    'sc': {
+        languages: require('../../../../lang/languages-sc'),
+        main: require('../../../../lang/main-sc')
+    },
+
+    // Romanian
+    'ro': {
+        languages: require('../../../../lang/languages-ro'),
+        main: require('../../../../lang/main-ro')
+    },
+
     // Russian
     'ru': {
         languages: require('../../../../lang/languages-ru'),
@@ -85,16 +163,16 @@ const _LANGUAGES = {
         main: require('../../../../lang/main-sk')
     },
 
-    // Slovenian
-    'sl': {
-        languages: require('../../../../lang/languages-sl'),
-        main: require('../../../../lang/main-sl')
-    },
-
     // Swedish
     'sv': {
         languages: require('../../../../lang/languages-sv'),
         main: require('../../../../lang/main-sv')
+    },
+
+    // Slovenian
+    'sl': {
+        languages: require('../../../../lang/languages-sl'),
+        main: require('../../../../lang/main-sl')
     },
 
     // Turkish
@@ -103,11 +181,27 @@ const _LANGUAGES = {
         main: require('../../../../lang/main-tr')
     },
 
+    // Vietnamese
+    'vi': {
+        languages: require('../../../../lang/languages-vi'),
+        main: require('../../../../lang/main-vi')
+    },
+
     // Chinese (China)
     'zhCN': {
         languages: require('../../../../lang/languages-zhCN'),
         main: require('../../../../lang/main-zhCN')
-    }
+    },
+
+    // Chinese (Taiwan)
+    'zhTW': {
+        languages: require('../../../../lang/languages-zhTW'),
+        main: require('../../../../lang/main-zhTW')
+    },
+
+    // Mongolian
+    'mn': { languages: require('../../../../lang/languages-mn'),
+        main: require('../../../../lang/main-mn') }
 };
 
 // Register all builtin languages with the i18n library.

@@ -6,7 +6,6 @@ import React from 'react';
 import { Dialog } from '../../../../base/dialog';
 import { translate } from '../../../../base/i18n';
 import { connect } from '../../../../base/redux';
-
 import {
     GOOGLE_API_STATES,
     GoogleSignInButton,
@@ -17,14 +16,13 @@ import {
     signIn,
     updateProfile
 } from '../../../../google-api';
-
 import AbstractStartLiveStreamDialog, {
     _mapStateToProps as _abstractMapStateToProps,
     type Props as AbstractProps
 } from '../AbstractStartLiveStreamDialog';
 
-import StreamKeyPicker from './StreamKeyPicker';
 import StreamKeyForm from './StreamKeyForm';
+import StreamKeyPicker from './StreamKeyPicker';
 
 type Props = AbstractProps & {
 
@@ -110,7 +108,7 @@ class StartLiveStreamDialog
 
     _onSubmit: () => boolean;
 
-    _onInitializeGoogleApi: () => Promise<*>;
+    _onInitializeGoogleApi: () => void;
 
     /**
      * Loads the Google web client application used for fetching stream keys.
@@ -118,11 +116,10 @@ class StartLiveStreamDialog
      * broadcasts is also made.
      *
      * @private
-     * @returns {Promise}
+     * @returns {void}
      */
     _onInitializeGoogleApi() {
-        this.props.dispatch(
-            loadGoogleAPI(this.props._googleApiApplicationClientID))
+        this.props.dispatch(loadGoogleAPI())
         .catch(response => this._parseErrorFromResponse(response));
     }
 
@@ -140,7 +137,7 @@ class StartLiveStreamDialog
         }
     }
 
-    _onGetYouTubeBroadcasts: () => Promise<*>;
+    _onGetYouTubeBroadcasts: () => void;
 
     /**
      * Asks the user to sign in, if not already signed in, and then requests a

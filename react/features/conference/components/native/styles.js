@@ -1,18 +1,29 @@
-import {
-    BoxModel,
-    ColorPalette,
-    createStyleSheet,
-    fixAndroidViewClipping
-} from '../../../base/styles';
-
+import { ColorSchemeRegistry, schemeColor } from '../../../base/color-scheme';
+import { BoxModel, ColorPalette, fixAndroidViewClipping } from '../../../base/styles';
 import { FILMSTRIP_SIZE } from '../../../filmstrip';
 
-export const NAVBAR_GRADIENT_COLORS = [ 'black', '#00000000' ];
+export const NAVBAR_GRADIENT_COLORS = [ '#000000FF', '#00000000' ];
+export const INSECURE_ROOM_NAME_LABEL_COLOR = ColorPalette.warning;
+
+// From brand guideline
+const BOTTOM_GRADIENT_HEIGHT = 290;
+const DEFAULT_GRADIENT_SIZE = 140;
 
 /**
  * The styles of the feature conference.
  */
-export default createStyleSheet({
+export default {
+
+    bottomGradient: {
+        bottom: 0,
+        flexDirection: 'column',
+        justifyContent: 'flex-end',
+        minHeight: DEFAULT_GRADIENT_SIZE,
+        left: 0,
+        position: 'absolute',
+        right: 0
+    },
+
     /**
      * {@code Conference} style.
      */
@@ -22,20 +33,6 @@ export default createStyleSheet({
         flex: 1
     }),
 
-    displayNameBackdrop: {
-        alignSelf: 'center',
-        backgroundColor: 'rgba(28, 32, 37, 0.6)',
-        borderRadius: 4,
-        margin: 16,
-        paddingHorizontal: 16,
-        paddingVertical: 4
-    },
-
-    displayNameText: {
-        color: ColorPalette.white,
-        fontSize: 14
-    },
-
     gradient: {
         position: 'absolute',
         top: 0,
@@ -44,8 +41,12 @@ export default createStyleSheet({
         flex: 1
     },
 
-    gradientStretch: {
-        height: 116
+    gradientStretchBottom: {
+        height: BOTTOM_GRADIENT_HEIGHT
+    },
+
+    gradientStretchTop: {
+        height: DEFAULT_GRADIENT_SIZE
     },
 
     /**
@@ -70,6 +71,29 @@ export default createStyleSheet({
         position: 'absolute',
         right: 0,
         top: 0
+    },
+
+    lonelyButton: {
+        alignItems: 'center',
+        borderRadius: 24,
+        flexDirection: 'row',
+        height: 48,
+        justifyContent: 'space-around',
+        paddingHorizontal: 12
+    },
+
+    lonelyButtonComponents: {
+        marginHorizontal: 6
+    },
+
+    lonelyMeetingContainer: {
+        alignSelf: 'stretch',
+        alignItems: 'center',
+        padding: BoxModel.padding * 2
+    },
+
+    lonelyMessage: {
+        paddingVertical: 12
     },
 
     navBarButton: {
@@ -105,6 +129,12 @@ export default createStyleSheet({
         paddingHorizontal: 14
     },
 
+    roomTimer: {
+        color: ColorPalette.white,
+        fontSize: 15,
+        opacity: 0.6
+    },
+
     roomName: {
         color: ColorPalette.white,
         fontSize: 17,
@@ -112,8 +142,8 @@ export default createStyleSheet({
     },
 
     roomNameWrapper: {
-        flexDirection: 'row',
-        justifyContent: 'center',
+        flexDirection: 'column',
+        alignItems: 'center',
         left: 0,
         paddingHorizontal: 48,
         position: 'absolute',
@@ -126,10 +156,11 @@ export default createStyleSheet({
      * the {@link Toolbox}.
      */
     toolboxAndFilmstripContainer: {
-        bottom: BoxModel.margin,
+        bottom: 0,
         flexDirection: 'column',
         justifyContent: 'flex-end',
         left: 0,
+        paddingBottom: BoxModel.padding,
         position: 'absolute',
         right: 0,
 
@@ -137,5 +168,19 @@ export default createStyleSheet({
         // On iPhone X there is the notch. In the two cases BoxModel.margin is
         // not enough.
         top: BoxModel.margin * 3
+    },
+
+    insecureRoomNameLabel: {
+        backgroundColor: INSECURE_ROOM_NAME_LABEL_COLOR
+    }
+};
+
+ColorSchemeRegistry.register('Conference', {
+    lonelyButton: {
+        backgroundColor: schemeColor('inviteButtonBackground')
+    },
+
+    lonelyMessage: {
+        color: schemeColor('onVideoText')
     }
 });

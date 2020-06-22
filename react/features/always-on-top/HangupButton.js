@@ -1,7 +1,9 @@
 // @flow
 
-import { AbstractHangupButton } from '../base/toolbox';
-import type { AbstractButtonProps as Props } from '../base/toolbox';
+// We need to reference these files directly to avoid loading things that are not available
+// in this environment (e.g. JitsiMeetJS or interfaceConfig)
+import type { Props } from '../base/toolbox/components/AbstractButton';
+import AbstractHangupButton from '../base/toolbox/components/AbstractHangupButton';
 
 const { api } = window.alwaysOnTop;
 

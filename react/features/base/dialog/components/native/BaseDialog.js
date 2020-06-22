@@ -2,18 +2,20 @@
 
 import React from 'react';
 import {
+    KeyboardAvoidingView,
     Text,
     TouchableOpacity,
+    TouchableWithoutFeedback,
     View
 } from 'react-native';
 
-import { Icon } from '../../../font-icons';
+import { Icon, IconClose } from '../../../icons';
 import { StyleType } from '../../../styles';
-
 import AbstractDialog, {
     type Props as AbstractProps,
     type State
 } from '../AbstractDialog';
+
 import { brandedDialog as styles } from './styles';
 
 export type Props = AbstractProps & {
@@ -51,28 +53,29 @@ class BaseDialog<P: Props, S: State> extends AbstractDialog<P, S> {
         const { _dialogStyles, style } = this.props;
 
         return (
-            <View
-                pointerEvents = 'box-none'
-                style = { [
-                    styles.overlay,
-                    style
-                ] }>
-                <View
-                    pointerEvents = 'box-none'
+            <TouchableWithoutFeedback>
+                <KeyboardAvoidingView
+                    behavior = 'height'
                     style = { [
-                        _dialogStyles.dialog,
-                        this.props.style
+                        styles.overlay
                     ] }>
-                    <TouchableOpacity
-                        onPress = { this._onCancel }
-                        style = { styles.closeWrapper }>
-                        <Icon
-                            name = 'close'
-                            style = { _dialogStyles.closeStyle } />
-                    </TouchableOpacity>
-                    { this._renderContent() }
-                </View>
-            </View>
+                    <View
+                        pointerEvents = 'box-none'
+                        style = { [
+                            _dialogStyles.dialog,
+                            style
+                        ] }>
+                        <TouchableOpacity
+                            onPress = { this._onCancel }
+                            style = { styles.closeWrapper }>
+                            <Icon
+                                src = { IconClose }
+                                style = { _dialogStyles.closeStyle } />
+                        </TouchableOpacity>
+                        { this._renderContent() }
+                    </View>
+                </KeyboardAvoidingView>
+            </TouchableWithoutFeedback>
         );
     }
 

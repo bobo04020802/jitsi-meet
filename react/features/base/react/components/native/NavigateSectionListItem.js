@@ -4,13 +4,12 @@ import React, { Component } from 'react';
 import Swipeout from 'react-native-swipeout';
 
 import { ColorPalette } from '../../../styles';
-
-import Container from './Container';
-import Text from './Text';
-import styles from './styles';
 import type { Item } from '../../Types';
 
 import AvatarListItem from './AvatarListItem';
+import Container from './Container';
+import Text from './Text';
+import styles from './styles';
 
 type Props = {
 
@@ -138,13 +137,14 @@ export default class NavigateSectionListItem extends Component<Props> {
 
         return (
             <Swipeout
+                autoClose = { true }
                 backgroundColor = { ColorPalette.transparent }
                 right = { right }>
                 <AvatarListItem
                     item = { item }
-                    onPress = { this.props.onPress }>
+                    onPress = { this.props.onPress } >
                     { this.props.secondaryAction
-                        && this._renderSecondaryAction() }
+                            && this._renderSecondaryAction() }
                 </AvatarListItem>
             </Swipeout>
         );

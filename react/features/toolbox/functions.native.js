@@ -1,5 +1,6 @@
 // @flow
 
+import { TOOLBOX_ALWAYS_VISIBLE, getFeatureFlag } from '../base/flags';
 import { toState } from '../base/redux';
 
 /**
@@ -10,8 +11,10 @@ import { toState } from '../base/redux';
  * @returns {boolean}
  */
 export function isToolboxVisible(stateful: Object | Function) {
-    const { alwaysVisible, enabled, visible }
-        = toState(stateful)['features/toolbox'];
+    const state = toState(stateful);
+    const { alwaysVisible, enabled, visible } = state['features/toolbox'];
+    const { length: participantCount } = state['features/base/participants'];
+    const flag = getFeatureFlag(state, TOOLBOX_ALWAYS_VISIBLE, false);
 
-    return enabled && (alwaysVisible || visible);
+    return enabled && (alwaysVisible || visible || participantCount === 1 || flag);
 }

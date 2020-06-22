@@ -1,24 +1,28 @@
 // @flow
 
-import { BoxModel, createStyleSheet, ColorPalette } from '../../../base/styles';
+import { ColorSchemeRegistry, schemeColor } from '../../../base/color-scheme';
+import { BoxModel, ColorPalette } from '../../../base/styles';
+
+export const DROPBOX_LOGO = require('../../../../../images/dropboxLogo_square.png');
+export const ICON_SHARE = require('../../../../../images/icon-users.png');
+export const JITSI_LOGO = require('../../../../../images/jitsiLogo_square.png');
 
 // XXX The "standard" {@code BoxModel.padding} has been deemed insufficient in
 // the special case(s) of the recording feature bellow.
 const _PADDING = BoxModel.padding * 1.5;
 
-export const DROPBOX_LOGO
-    = require('../../../../../images/dropboxLogo_square.png');
-
-export const JITSI_LOGO
-    = require('../../../../../images/jitsiLogo_square.png');
-
 /**
- * The styles of the React {@code Components} of the feature recording.
+ * Color schemed styles for the @{code StartRecordingDialogContent} component.
  */
-export default createStyleSheet({
+ColorSchemeRegistry.register('StartRecordingDialogContent', {
+
     container: {
         flex: 0,
         flexDirection: 'column'
+    },
+
+    controlDisabled: {
+        opacity: 0.5
     },
 
     header: {
@@ -60,6 +64,6 @@ export default createStyleSheet({
     },
 
     text: {
-        color: ColorPalette.white
+        color: schemeColor('text')
     }
 });

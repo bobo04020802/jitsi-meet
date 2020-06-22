@@ -1,30 +1,34 @@
 // @flow
 
-import React, { Component } from 'react';
+import React from 'react';
+import { View } from 'react-native';
 import type { Dispatch } from 'redux';
 
 import { ColorSchemeRegistry } from '../../../base/color-scheme';
 import { openDialog } from '../../../base/dialog';
-import { Audio, MEDIA_TYPE } from '../../../base/media';
+import { MEDIA_TYPE, VIDEO_TYPE } from '../../../base/media';
 import {
     PARTICIPANT_ROLE,
     ParticipantView,
-    isLocalParticipantModerator,
+    getParticipantCount,
+    isEveryoneModerator,
     pinParticipant
 } from '../../../base/participants';
 import { Container } from '../../../base/react';
 import { connect } from '../../../base/redux';
 import { StyleType } from '../../../base/styles';
 import { getTrackByMediaTypeAndParticipant } from '../../../base/tracks';
-
+import { ConnectionIndicator } from '../../../connection-indicator';
+import { DisplayNameLabel } from '../../../display-name';
 import { RemoteVideoMenu } from '../../../remote-video-menu';
+import { toggleToolboxVisible } from '../../../toolbox';
 
 import AudioMutedIndicator from './AudioMutedIndicator';
 import DominantSpeakerIndicator from './DominantSpeakerIndicator';
 import ModeratorIndicator from './ModeratorIndicator';
-import { AVATAR_SIZE } from '../styles';
-import styles from './styles';
+import RaisedHandIndicator from './RaisedHandIndicator';
 import VideoMutedIndicator from './VideoMutedIndicator';
+import styles, { AVATAR_SIZE } from './styles';
 
 /**
  * Thumbnail component's property types.
@@ -32,14 +36,9 @@ import VideoMutedIndicator from './VideoMutedIndicator';
 type Props = {
 
     /**
-     * The Redux representation of the participant's audio track.
+     * Whether local audio (microphone) is muted or not.
      */
-    _audioTrack: Object,
-
-    /**
-     * True if the local participant is a moderator.
-     */
-    _isModerator: boolean,
+    _audioMuted: boolean,
 
     /**
      * The Redux representation of the state "features/large-video".
@@ -57,6 +56,16 @@ type Props = {
     _onShowRemoteVideoMenu: ?Function,
 
     /**
+     * Whether to show the dominant speaker indicator or not.
+     */
+    _renderDominantSpeakerIndicator: boolean,
+
+    /**
+     * Whether to show the moderator indicator or not.
+     */
+    _renderModeratorIndicator: boolean,
+
+    /**
      * The color-schemed stylesheet of the feature.
      */
     _styles: StyleType,
@@ -65,12 +74,6 @@ type Props = {
      * The Redux representation of the participant's video track.
      */
     _videoTrack: Object,
-
-    /**
-     * If true, tapping on the thumbnail will not pin the participant to large
-     * video. By default tapping does pin the participant.
-     */
-    disablePin?: boolean,
 
     /**
      * If true, there will be no color overlay (tint) on the thumbnail
@@ -90,95 +93,104 @@ type Props = {
     participant: Object,
 
     /**
+     * Whether to display or hide the display name of the participant in the thumbnail.
+     */
+    renderDisplayName: ?boolean,
+
+    /**
      * Optional styling to add or override on the Thumbnail component root.
      */
-    styleOverrides?: Object
+    styleOverrides?: Object,
+
+    /**
+     * If true, it tells the thumbnail that it needs to behave differently. E.g. react differently to a single tap.
+     */
+    tileView?: boolean
 };
 
 /**
  * React component for video thumbnail.
  *
- * @extends Component
+ * @param {Props} props - Properties passed to this functional component.
+ * @returns {Component} - A React component.
  */
-class Thumbnail extends Component<Props> {
-    /**
-     * Implements React's {@link Component#render()}.
-     *
-     * @inheritdoc
-     * @returns {ReactElement}
-     */
-    render() {
-        const {
-            _audioTrack: audioTrack,
-            _isModerator,
-            _largeVideo: largeVideo,
-            _onClick,
-            _onShowRemoteVideoMenu,
-            _styles,
-            _videoTrack: videoTrack,
-            disablePin,
-            disableTint,
-            participant
-        } = this.props;
+function Thumbnail(props: Props) {
+    const {
+        _audioMuted: audioMuted,
+        _largeVideo: largeVideo,
+        _onClick,
+        _onShowRemoteVideoMenu,
+        _renderDominantSpeakerIndicator: renderDominantSpeakerIndicator,
+        _renderModeratorIndicator: renderModeratorIndicator,
+        _styles,
+        _videoTrack: videoTrack,
+        disableTint,
+        participant,
+        renderDisplayName,
+        tileView
+    } = props;
 
-        // We don't render audio in any of the following:
-        // 1. The audio (source) is muted. There's no practical reason (that we
-        //    know of, anyway) why we'd want to render it given that it's
-        //    silence (& not even comfort noise).
-        // 2. The audio is local. If we were to render local audio, the local
-        //    participants would be hearing themselves.
-        const audioMuted = !audioTrack || audioTrack.muted;
-        const renderAudio = !audioMuted && !audioTrack.local;
-        const participantId = participant.id;
-        const participantInLargeVideo
-            = participantId === largeVideo.participantId;
-        const videoMuted = !videoTrack || videoTrack.muted;
-        const showRemoteVideoMenu = _isModerator && !participant.local;
+    const participantId = participant.id;
+    const participantInLargeVideo
+        = participantId === largeVideo.participantId;
+    const videoMuted = !videoTrack || videoTrack.muted;
+    const isScreenShare = videoTrack && videoTrack.videoType === VIDEO_TYPE.DESKTOP;
 
-        return (
-            <Container
-                onClick = { disablePin ? undefined : _onClick }
-                onLongPress = {
-                    showRemoteVideoMenu
-                        ? _onShowRemoteVideoMenu : undefined }
+    return (
+        <Container
+            onClick = { _onClick }
+            onLongPress = { participant.local ? undefined : _onShowRemoteVideoMenu }
+            style = { [
+                styles.thumbnail,
+                participant.pinned && !tileView
+                    ? _styles.thumbnailPinned : null,
+                props.styleOverrides || null
+            ] }
+            touchFeedback = { false }>
+
+            <ParticipantView
+                avatarSize = { AVATAR_SIZE }
+                disableVideo = { isScreenShare || participant.isFakeParticipant }
+                participantId = { participantId }
+                style = { _styles.participantViewStyle }
+                tintEnabled = { participantInLargeVideo && !disableTint }
+                tintStyle = { _styles.activeThumbnailTint }
+                zOrder = { 1 } />
+
+            { renderDisplayName && <DisplayNameLabel participantId = { participantId } /> }
+
+            { renderModeratorIndicator
+                && <View style = { styles.moderatorIndicatorContainer }>
+                    <ModeratorIndicator />
+                </View>}
+
+            { !participant.isFakeParticipant && <View
                 style = { [
-                    styles.thumbnail,
-                    participant.pinned && !disablePin
-                        ? _styles.thumbnailPinned : null,
-                    this.props.styleOverrides || null
-                ] }
-                touchFeedback = { false }>
+                    styles.thumbnailTopIndicatorContainer,
+                    styles.thumbnailTopLeftIndicatorContainer
+                ] }>
+                <RaisedHandIndicator participantId = { participant.id } />
+                { renderDominantSpeakerIndicator && <DominantSpeakerIndicator /> }
+            </View> }
 
-                { renderAudio
-                    && <Audio
-                        stream
-                            = { audioTrack.jitsiTrack.getOriginalStream() } /> }
+            { !participant.isFakeParticipant && <View
+                style = { [
+                    styles.thumbnailTopIndicatorContainer,
+                    styles.thumbnailTopRightIndicatorContainer
+                ] }>
+                <ConnectionIndicator participantId = { participant.id } />
+            </View> }
 
-                <ParticipantView
-                    avatarSize = { AVATAR_SIZE }
-                    participantId = { participantId }
-                    style = { _styles.participantViewStyle }
-                    tintEnabled = { participantInLargeVideo && !disableTint }
-                    tintStyle = { _styles.activeThumbnailTint }
-                    zOrder = { 1 } />
+            { !participant.isFakeParticipant && <Container style = { styles.thumbnailIndicatorContainer }>
+                { audioMuted
+                    && <AudioMutedIndicator /> }
 
-                { participant.role === PARTICIPANT_ROLE.MODERATOR
-                    && <ModeratorIndicator /> }
+                { videoMuted
+                    && <VideoMutedIndicator /> }
+            </Container> }
 
-                { participant.dominantSpeaker
-                    && <DominantSpeakerIndicator /> }
-
-                <Container style = { styles.thumbnailIndicatorContainer }>
-                    { audioMuted
-                        && <AudioMutedIndicator /> }
-
-                    { videoMuted
-                        && <VideoMutedIndicator /> }
-                </Container>
-
-            </Container>
-        );
-    }
+        </Container>
+    );
 }
 
 /**
@@ -200,10 +212,13 @@ function _mapDispatchToProps(dispatch: Function, ownProps): Object {
          * @returns {void}
          */
         _onClick() {
-            const { participant } = ownProps;
+            const { participant, tileView } = ownProps;
 
-            dispatch(
-                pinParticipant(participant.pinned ? null : participant.id));
+            if (tileView) {
+                dispatch(toggleToolboxVisible());
+            } else {
+                dispatch(pinParticipant(participant.pinned ? null : participant.id));
+            }
         },
 
         /**
@@ -226,13 +241,7 @@ function _mapDispatchToProps(dispatch: Function, ownProps): Object {
  *
  * @param {Object} state - Redux state.
  * @param {Props} ownProps - Properties of component.
- * @returns {{
- *      _audioTrack: Track,
- *      _isModerator: boolean,
- *      _largeVideo: Object,
- *      _styles: StyleType,
- *      _videoTrack: Track
- *  }}
+ * @returns {Object}
  */
 function _mapStateToProps(state, ownProps) {
     // We need read-only access to the state of features/large-video so that the
@@ -240,16 +249,22 @@ function _mapStateToProps(state, ownProps) {
     // the stage i.e. as a large video.
     const largeVideo = state['features/large-video'];
     const tracks = state['features/base/tracks'];
-    const id = ownProps.participant.id;
+    const { participant } = ownProps;
+    const id = participant.id;
     const audioTrack
         = getTrackByMediaTypeAndParticipant(tracks, MEDIA_TYPE.AUDIO, id);
     const videoTrack
         = getTrackByMediaTypeAndParticipant(tracks, MEDIA_TYPE.VIDEO, id);
+    const participantCount = getParticipantCount(state);
+    const renderDominantSpeakerIndicator = participant.dominantSpeaker && participantCount > 2;
+    const _isEveryoneModerator = isEveryoneModerator(state);
+    const renderModeratorIndicator = !_isEveryoneModerator && participant.role === PARTICIPANT_ROLE.MODERATOR;
 
     return {
-        _audioTrack: audioTrack,
-        _isModerator: isLocalParticipantModerator(state),
+        _audioMuted: audioTrack?.muted ?? true,
         _largeVideo: largeVideo,
+        _renderDominantSpeakerIndicator: renderDominantSpeakerIndicator,
+        _renderModeratorIndicator: renderModeratorIndicator,
         _styles: ColorSchemeRegistry.get(state, 'Thumbnail'),
         _videoTrack: videoTrack
     };

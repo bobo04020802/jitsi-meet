@@ -6,9 +6,7 @@ import { View, Text, TextInput, TouchableOpacity } from 'react-native';
 import { translate } from '../../../i18n';
 import { connect } from '../../../redux';
 import { StyleType } from '../../../styles';
-
 import { _abstractMapStateToProps } from '../../functions';
-
 import { type State as AbstractState } from '../AbstractDialog';
 
 import BaseDialog, { type Props as BaseProps } from './BaseDialog';
@@ -30,9 +28,24 @@ type Props = BaseProps & {
      */
     contentKey: string,
 
+    /**
+     * An optional initial value to initiate the field with.
+     */
+    initialValue?: ?string,
+
+    /**
+     * A message key to be shown for the user (e.g. an error that is defined after submitting the form).
+     */
+    messageKey?: string,
+
     t: Function,
 
-    textInputProps: ?Object
+    textInputProps: ?Object,
+
+    /**
+     * Validating of the input.
+     */
+    validateInput: ?Function
 }
 
 type State = {
@@ -57,7 +70,7 @@ class InputDialog extends BaseDialog<Props, State> {
         super(props);
 
         this.state = {
-            fieldValue: undefined
+            fieldValue: props.initialValue
         };
 
         this._onChangeText = this._onChangeText.bind(this);
@@ -70,7 +83,7 @@ class InputDialog extends BaseDialog<Props, State> {
      * @inheritdoc
      */
     _renderContent() {
-        const { _dialogStyles, okDisabled, t } = this.props;
+        const { _dialogStyles, messageKey, okDisabled, t } = this.props;
 
         return (
             <View>
@@ -88,6 +101,13 @@ class InputDialog extends BaseDialog<Props, State> {
                         underlineColorAndroid = { FIELD_UNDERLINE }
                         value = { this.state.fieldValue }
                         { ...this.props.textInputProps } />
+                    { messageKey && (<Text
+                        style = { [
+                            styles.formMessage,
+                            _dialogStyles.text
+                        ] }>
+                        { t(messageKey) }
+                    </Text>) }
                 </View>
                 <View style = { brandedDialog.buttonWrapper }>
                     <TouchableOpacity
@@ -118,6 +138,12 @@ class InputDialog extends BaseDialog<Props, State> {
      * @returns {void}
      */
     _onChangeText(fieldValue) {
+
+        if (this.props.validateInput
+                && !this.props.validateInput(fieldValue)) {
+            return;
+        }
+
         this.setState({
             fieldValue
         });

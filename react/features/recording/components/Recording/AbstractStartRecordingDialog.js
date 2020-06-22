@@ -11,9 +11,15 @@ import {
     getDropboxData,
     isEnabled as isDropboxEnabled
 } from '../../../dropbox';
+import { toggleRequestingSubtitles } from '../../../subtitles';
 import { RECORDING_TYPES } from '../../constants';
 
 type Props = {
+
+    /**
+     * Requests subtitles when recording is turned on.
+     */
+    _autoCaptionOnRecord: boolean,
 
     /**
      * The {@code JitsiConference} for the current conference.
@@ -30,6 +36,12 @@ type Props = {
      * are enabled.
      */
     _fileRecordingsServiceEnabled: boolean,
+
+    /**
+     * Whether to show the possibility to share file recording with other people (e.g. meeting participants), based on
+     * the actual implementation on the backend.
+     */
+    _fileRecordingsServiceSharingEnabled: boolean,
 
     /**
      * If true the dropbox integration is enabled, otherwise - disabled.
@@ -70,6 +82,11 @@ type State = {
     selectedRecordingService: ?string,
 
     /**
+     * True if the user requested the service to share the recording with others.
+     */
+    sharingEnabled: boolean,
+
+    /**
      * Number of MiB of available space in user's Dropbox account.
      */
     spaceLeft: ?number,
@@ -96,6 +113,7 @@ class AbstractStartRecordingDialog extends Component<Props, State> {
         this._onSubmit = this._onSubmit.bind(this);
         this._onSelectedRecordingServiceChanged
             = this._onSelectedRecordingServiceChanged.bind(this);
+        this._onSharingSettingChanged = this._onSharingSettingChanged.bind(this);
 
         let selectedRecordingService;
 
@@ -112,6 +130,7 @@ class AbstractStartRecordingDialog extends Component<Props, State> {
             isTokenValid: false,
             isValidating: false,
             userName: undefined,
+            sharingEnabled: true,
             spaceLeft: undefined,
             selectedRecordingService
         };
@@ -152,6 +171,19 @@ class AbstractStartRecordingDialog extends Component<Props, State> {
      */
     _areIntegrationsEnabled() {
         return this.props._isDropboxEnabled;
+    }
+
+    _onSharingSettingChanged: () => void;
+
+    /**
+     * Callback to handle sharing setting change from the dialog.
+     *
+     * @returns {void}
+     */
+    _onSharingSettingChanged() {
+        this.setState({
+            sharingEnabled: !this.state.sharingEnabled
+        });
     }
 
     _onSelectedRecordingServiceChanged: (string) => void;
@@ -215,7 +247,7 @@ class AbstractStartRecordingDialog extends Component<Props, State> {
      * @returns {boolean} - True (to note that the modal should be closed).
      */
     _onSubmit() {
-        const { _conference, _isDropboxEnabled, _token } = this.props;
+        const { _autoCaptionOnRecord, _conference, _isDropboxEnabled, _token, dispatch } = this.props;
         let appData;
         const attributes = {};
 
@@ -233,6 +265,11 @@ class AbstractStartRecordingDialog extends Component<Props, State> {
             });
             attributes.type = RECORDING_TYPES.DROPBOX;
         } else {
+            appData = JSON.stringify({
+                'file_recording_metadata': {
+                    'share': this.state.sharingEnabled
+                }
+            });
             attributes.type = RECORDING_TYPES.JITSI_REC_SERVICE;
         }
 
@@ -244,6 +281,10 @@ class AbstractStartRecordingDialog extends Component<Props, State> {
             mode: JitsiRecordingConstants.mode.FILE,
             appData
         });
+
+        if (_autoCaptionOnRecord) {
+            dispatch(toggleRequestingSubtitles());
+        }
 
         return true;
     }
@@ -265,20 +306,28 @@ class AbstractStartRecordingDialog extends Component<Props, State> {
  * @private
  * @returns {{
  *     _appKey: string,
+ *     _autoCaptionOnRecord: boolean,
  *     _conference: JitsiConference,
+ *     _fileRecordingsServiceEnabled: boolean,
+ *     _fileRecordingsServiceSharingEnabled: boolean,
+ *     _isDropboxEnabled: boolean,
  *     _token: string
  * }}
  */
 export function mapStateToProps(state: Object) {
     const {
+        autoCaptionOnRecord = false,
         fileRecordingsServiceEnabled = false,
+        fileRecordingsServiceSharingEnabled = false,
         dropbox = {}
     } = state['features/base/config'];
 
     return {
         _appKey: dropbox.appKey,
+        _autoCaptionOnRecord: autoCaptionOnRecord,
         _conference: state['features/base/conference'].conference,
         _fileRecordingsServiceEnabled: fileRecordingsServiceEnabled,
+        _fileRecordingsServiceSharingEnabled: fileRecordingsServiceSharingEnabled,
         _isDropboxEnabled: isDropboxEnabled(state),
         _token: state['features/dropbox'].token
     };

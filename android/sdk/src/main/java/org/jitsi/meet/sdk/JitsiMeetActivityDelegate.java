@@ -22,9 +22,9 @@ import android.app.Activity;
 import android.content.Intent;
 import android.os.Build;
 
-import com.calendarevents.CalendarEventsPackage;
 import com.facebook.react.ReactInstanceManager;
 import com.facebook.react.bridge.Callback;
+import com.facebook.react.bridge.ReactContext;
 import com.facebook.react.modules.core.PermissionListener;
 
 /**
@@ -39,6 +39,15 @@ public class JitsiMeetActivityDelegate {
      */
     private static PermissionListener permissionListener;
     private static Callback permissionsCallback;
+
+    /**
+     * Tells whether or not the permissions request is currently in progress.
+     *
+     * @return {@code true} if the permssions are being requested or {@code false} otherwise.
+     */
+    static boolean arePermissionsBeingRequested() {
+        return permissionListener != null;
+    }
 
     /**
      * {@link Activity} lifecycle method which should be called from
@@ -108,7 +117,13 @@ public class JitsiMeetActivityDelegate {
             = ReactInstanceManagerHolder.getReactInstanceManager();
 
         if (reactInstanceManager != null) {
-            reactInstanceManager.onHostPause(activity);
+            // Try to avoid a crash because some devices trip on this assert:
+            // https://github.com/facebook/react-native/blob/df4e67fe75d781d1eb264128cadf079989542755/ReactAndroid/src/main/java/com/facebook/react/ReactInstanceManager.java#L512
+            // Why this happens is a mystery wrapped in an enigma.
+            ReactContext reactContext = reactInstanceManager.getCurrentReactContext();
+            if (reactContext != null && activity == reactContext.getCurrentActivity()) {
+                reactInstanceManager.onHostPause(activity);
+            }
         }
     }
 
@@ -151,13 +166,7 @@ public class JitsiMeetActivityDelegate {
     }
 
     public static void onRequestPermissionsResult(
-        final int requestCode,
-        final String[] permissions,
-        final int[] grantResults) {
-        CalendarEventsPackage.onRequestPermissionsResult(
-            requestCode,
-            permissions,
-            grantResults);
+            final int requestCode, final String[] permissions, final int[] grantResults) {
         permissionsCallback = new Callback() {
             @Override
             public void invoke(Object... args) {

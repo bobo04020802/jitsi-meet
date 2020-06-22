@@ -4,12 +4,13 @@ import { AtlasKitThemeProvider } from '@atlaskit/theme';
 import React from 'react';
 
 import { DialogContainer } from '../../base/dialog';
-import '../../base/responsive-ui';
-import '../../chat';
-import '../../room-lock';
-import '../../video-layout';
+import { ChromeExtensionBanner } from '../../chrome-extension-banner';
 
 import { AbstractApp } from './AbstractApp';
+
+// Register middlewares and reducers.
+import '../middlewares';
+import '../reducers';
 
 /**
  * Root app {@code Component} on Web/React.
@@ -26,6 +27,7 @@ export class App extends AbstractApp {
     _createMainElement(component, props) {
         return (
             <AtlasKitThemeProvider mode = 'dark'>
+                <ChromeExtensionBanner />
                 { super._createMainElement(component, props) }
             </AtlasKitThemeProvider>
         );

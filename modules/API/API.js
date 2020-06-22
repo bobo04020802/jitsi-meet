@@ -1,18 +1,36 @@
 // @flow
 
+import Logger from 'jitsi-meet-logger';
+
 import * as JitsiMeetConferenceEvents from '../../ConferenceEvents';
 import {
     createApiEvent,
     sendAnalytics
 } from '../../react/features/analytics';
-import { setSubject } from '../../react/features/base/conference';
+import {
+    getCurrentConference,
+    sendTones,
+    setPassword,
+    setSubject
+} from '../../react/features/base/conference';
 import { parseJWTFromURLParams } from '../../react/features/base/jwt';
+import { JitsiRecordingConstants } from '../../react/features/base/lib-jitsi-meet';
+import {
+    processExternalDeviceRequest
+} from '../../react/features/device-selection/functions';
+import { isEnabled as isDropboxEnabled } from '../../react/features/dropbox';
+import { setE2EEKey } from '../../react/features/e2ee';
 import { invite } from '../../react/features/invite';
+import { RECORDING_TYPES } from '../../react/features/recording/constants';
+import { getActiveSession } from '../../react/features/recording/functions';
+import { muteAllParticipants } from '../../react/features/remote-video-menu/actions';
+import { toggleTileView } from '../../react/features/video-layout';
+import { setVideoQuality } from '../../react/features/video-quality';
 import { getJitsiMeetTransport } from '../transport';
 
-import { API_ID } from './constants';
+import { API_ID, ENDPOINT_TEXT_MESSAGE_NAME } from './constants';
 
-const logger = require('jitsi-meet-logger').getLogger(__filename);
+const logger = Logger.getLogger(__filename);
 
 declare var APP: Object;
 
@@ -61,8 +79,45 @@ function initCommands() {
             sendAnalytics(createApiEvent('display.name.changed'));
             APP.conference.changeLocalDisplayName(displayName);
         },
+        'mute-everyone': () => {
+            sendAnalytics(createApiEvent('muted-everyone'));
+            const participants = APP.store.getState()['features/base/participants'];
+            const localIds = participants
+                .filter(participant => participant.local)
+                .filter(participant => participant.role === 'moderator')
+                .map(participant => participant.id);
+
+            APP.store.dispatch(muteAllParticipants(localIds));
+        },
+        'password': password => {
+            const { conference, passwordRequired }
+                = APP.store.getState()['features/base/conference'];
+
+            if (passwordRequired) {
+                sendAnalytics(createApiEvent('submit.password'));
+
+                APP.store.dispatch(setPassword(
+                    passwordRequired,
+                    passwordRequired.join,
+                    password
+                ));
+            } else {
+                sendAnalytics(createApiEvent('password.changed'));
+
+                APP.store.dispatch(setPassword(
+                    conference,
+                    conference.lock,
+                    password
+                ));
+            }
+        },
         'proxy-connection-event': event => {
             APP.conference.onProxyConnectionEvent(event);
+        },
+        'send-tones': (options = {}) => {
+            const { duration, tones, pause } = options;
+
+            APP.store.dispatch(sendTones(tones, duration, pause));
         },
         'subject': subject => {
             sendAnalytics(createApiEvent('subject.changed'));
@@ -90,13 +145,28 @@ function initCommands() {
             sendAnalytics(createApiEvent('chat.toggled'));
             APP.UI.toggleChat();
         },
-        'toggle-share-screen': () => {
+
+        /**
+         * Callback to invoke when the "toggle-share-screen" command is received.
+         *
+         * @param {Object} options - Additional details of how to perform
+         * the action. Note this parameter is undocumented and experimental.
+         * @param {boolean} options.enable - Whether trying to enable screen
+         * sharing or to turn it off.
+         * @returns {void}
+         */
+        'toggle-share-screen': (options = {}) => {
             sendAnalytics(createApiEvent('screen.sharing.toggled'));
-            toggleScreenSharing();
+            toggleScreenSharing(options.enable);
         },
-        'video-hangup': () => {
+        'toggle-tile-view': () => {
+            sendAnalytics(createApiEvent('tile-view.toggled'));
+
+            APP.store.dispatch(toggleTileView());
+        },
+        'video-hangup': (showFeedbackDialog = true) => {
             sendAnalytics(createApiEvent('video.hangup'));
-            APP.conference.hangup(true);
+            APP.conference.hangup(showFeedbackDialog);
         },
         'email': email => {
             sendAnalytics(createApiEvent('email.changed'));
@@ -105,6 +175,134 @@ function initCommands() {
         'avatar-url': avatarUrl => {
             sendAnalytics(createApiEvent('avatar.url.changed'));
             APP.conference.changeLocalAvatarUrl(avatarUrl);
+        },
+        'send-endpoint-text-message': (to, text) => {
+            logger.debug('Send endpoint message command received');
+            try {
+                APP.conference.sendEndpointMessage(to, {
+                    name: ENDPOINT_TEXT_MESSAGE_NAME,
+                    text
+                });
+            } catch (err) {
+                logger.error('Failed sending endpoint text message', err);
+            }
+        },
+        'e2ee-key': key => {
+            logger.debug('Set E2EE key command received');
+            APP.store.dispatch(setE2EEKey(key));
+        },
+        'set-video-quality': frameHeight => {
+            logger.debug('Set video quality command received');
+            sendAnalytics(createApiEvent('set.video.quality'));
+            APP.store.dispatch(setVideoQuality(frameHeight));
+        },
+
+        /**
+         * Starts a file recording or streaming depending on the passed on params.
+         * For youtube streams, `youtubeStreamKey` must be passed on. `youtubeBroadcastID` is optional.
+         * For dropbox recording, recording `mode` should be `file` and a dropbox oauth2 token must be provided.
+         * For file recording, recording `mode` should be `file` and optionally `shouldShare` could be passed on.
+         * No other params should be passed.
+         *
+         * @param { string } arg.mode - Recording mode, either `file` or `stream`.
+         * @param { string } arg.dropboxToken - Dropbox oauth2 token.
+         * @param { boolean } arg.shouldShare - Whether the recording should be shared with the participants or not.
+         * Only applies to certain jitsi meet deploys.
+         * @param { string } arg.youtubeStreamKey - The youtube stream key.
+         * @param { string } arg.youtubeBroadcastID - The youtube broacast ID.
+         * @returns {void}
+         */
+        'start-recording': ({ mode, dropboxToken, shouldShare, youtubeStreamKey, youtubeBroadcastID }) => {
+            const state = APP.store.getState();
+            const conference = getCurrentConference(state);
+
+            if (!conference) {
+                logger.error('Conference is not defined');
+
+                return;
+            }
+
+            if (dropboxToken && !isDropboxEnabled(state)) {
+                logger.error('Failed starting recording: dropbox is not enabled on this deployment');
+
+                return;
+            }
+
+            if (mode === JitsiRecordingConstants.mode.STREAM && !youtubeStreamKey) {
+                logger.error('Failed starting recording: missing youtube stream key');
+
+                return;
+            }
+
+            let recordingConfig;
+
+            if (mode === JitsiRecordingConstants.mode.FILE) {
+                if (dropboxToken) {
+                    recordingConfig = {
+                        mode: JitsiRecordingConstants.mode.FILE,
+                        appData: JSON.stringify({
+                            'file_recording_metadata': {
+                                'upload_credentials': {
+                                    'service_name': RECORDING_TYPES.DROPBOX,
+                                    'token': dropboxToken
+                                }
+                            }
+                        })
+                    };
+                } else {
+                    recordingConfig = {
+                        mode: JitsiRecordingConstants.mode.FILE,
+                        appData: JSON.stringify({
+                            'file_recording_metadata': {
+                                'share': shouldShare
+                            }
+                        })
+                    };
+                }
+            } else if (mode === JitsiRecordingConstants.mode.STREAM) {
+                recordingConfig = {
+                    broadcastId: youtubeBroadcastID,
+                    mode: JitsiRecordingConstants.mode.STREAM,
+                    streamId: youtubeStreamKey
+                };
+            } else {
+                logger.error('Invalid recording mode provided');
+
+                return;
+            }
+
+            conference.startRecording(recordingConfig);
+        },
+
+        /**
+         * Stops a recording or streaming in progress.
+         *
+         * @param {string} mode - `file` or `stream`.
+         * @returns {void}
+         */
+        'stop-recording': mode => {
+            const state = APP.store.getState();
+            const conference = getCurrentConference(state);
+
+            if (!conference) {
+                logger.error('Conference is not defined');
+
+                return;
+            }
+
+            if (![ JitsiRecordingConstants.mode.FILE, JitsiRecordingConstants.mode.STREAM ].includes(mode)) {
+                logger.error('Invalid recording mode provided!');
+
+                return;
+            }
+
+            const activeSession = getActiveSession(state, mode);
+
+            if (activeSession && activeSession.id) {
+                conference.stopRecording(activeSession.id);
+            } else {
+                logger.error('No recording or streaming session found');
+            }
         }
     };
     transport.on('event', ({ data, name }) => {
@@ -117,6 +315,12 @@ function initCommands() {
         return false;
     });
     transport.on('request', (request, callback) => {
+        const { dispatch, getState } = APP.store;
+
+        if (processExternalDeviceRequest(dispatch, getState, request, callback)) {
+            return true;
+        }
+
         const { name } = request;
 
         switch (name) {
@@ -205,13 +409,17 @@ function shouldBeEnabled() {
 /**
  * Executes on toggle-share-screen command.
  *
+ * @param {boolean} [enable] - Whether this toggle is to explicitly enable or
+ * disable screensharing. If not defined, the application will automatically
+ * attempt to toggle between enabled and disabled. This boolean is useful for
+ * explicitly setting desired screensharing state.
  * @returns {void}
  */
-function toggleScreenSharing() {
+function toggleScreenSharing(enable) {
     if (APP.conference.isDesktopSharingEnabled) {
 
         // eslint-disable-next-line no-empty-function
-        APP.conference.toggleScreenSharing().catch(() => {});
+        APP.conference.toggleScreenSharing(enable).catch(() => {});
     } else {
         initialScreenSharingState = !initialScreenSharingState;
     }
@@ -298,12 +506,14 @@ class API {
      * Notify external application (if API is enabled) that message was sent.
      *
      * @param {string} message - Message body.
+     * @param {boolean} privateMessage - True if the message was a private message.
      * @returns {void}
      */
-    notifySendingChatMessage(message: string) {
+    notifySendingChatMessage(message: string, privateMessage: boolean) {
         this._sendEvent({
             name: 'outgoing-message',
-            message
+            message,
+            privateMessage
         });
     }
 
@@ -362,6 +572,22 @@ class API {
     }
 
     /**
+     * Notify external application (if API is enabled) that the user role
+     * has changed.
+     *
+     * @param {string} id - User id.
+     * @param {string} role - The new user role.
+     * @returns {void}
+     */
+    notifyUserRoleChanged(id: string, role: string) {
+        this._sendEvent({
+            name: 'participant-role-changed',
+            id,
+            role
+        });
+    }
+
+    /**
      * Notify external application (if API is enabled) that user changed their
      * avatar.
      *
@@ -374,6 +600,34 @@ class API {
             name: 'avatar-changed',
             avatarURL,
             id
+        });
+    }
+
+    /**
+     * Notify external application (if API is enabled) that user received
+     * a text message through datachannels.
+     *
+     * @param {Object} data - The event data.
+     * @returns {void}
+     */
+    notifyEndpointTextMessageReceived(data: Object) {
+        this._sendEvent({
+            name: 'endpoint-text-message-received',
+            data
+        });
+    }
+
+    /**
+     * Notify external application (if API is enabled) that the device list has
+     * changed.
+     *
+     * @param {Object} devices - The new device list.
+     * @returns {void}
+     */
+    notifyDeviceListChanged(devices: Object) {
+        this._sendEvent({
+            name: 'device-list-changed',
+            devices
         });
     }
 
@@ -460,6 +714,15 @@ class API {
     }
 
     /**
+     * Notify external application (if API is enabled) that a suspend event in host computer.
+     *
+     * @returns {void}
+     */
+    notifySuspendDetected() {
+        this._sendEvent({ name: 'suspend-detected' });
+    }
+
+    /**
      * Notify external application (if API is enabled) for audio muted status
      * changed.
      *
@@ -532,14 +795,50 @@ class API {
     }
 
     /**
+     * Notify external application of an unexpected camera-related error having
+     * occurred.
+     *
+     * @param {string} type - The type of the camera error.
+     * @param {string} message - Additional information about the error.
+     * @returns {void}
+     */
+    notifyOnCameraError(type: string, message: string) {
+        this._sendEvent({
+            name: 'camera-error',
+            type,
+            message
+        });
+    }
+
+    /**
+     * Notify external application of an unexpected mic-related error having
+     * occurred.
+     *
+     * @param {string} type - The type of the mic error.
+     * @param {string} message - Additional information about the error.
+     * @returns {void}
+     */
+    notifyOnMicError(type: string, message: string) {
+        this._sendEvent({
+            name: 'mic-error',
+            type,
+            message
+        });
+    }
+
+    /**
      * Notify external application (if API is enabled) that conference feedback
      * has been submitted. Intended to be used in conjunction with the
      * submit-feedback command to get notified if feedback was submitted.
      *
+     * @param {string} error - A failure message, if any.
      * @returns {void}
      */
-    notifyFeedbackSubmitted() {
-        this._sendEvent({ name: 'feedback-submitted' });
+    notifyFeedbackSubmitted(error: string) {
+        this._sendEvent({
+            name: 'feedback-submitted',
+            error
+        });
     }
 
     /**
@@ -568,6 +867,34 @@ class API {
     }
 
     /**
+     * Notify external application of a participant, remote or local, being
+     * removed from the conference by another participant.
+     *
+     * @param {string} kicked - The ID of the participant removed from the
+     * conference.
+     * @param {string} kicker - The ID of the participant that removed the
+     * other participant.
+     * @returns {void}
+     */
+    notifyKickedOut(kicked: Object, kicker: Object) {
+        this._sendEvent({
+            name: 'participant-kicked-out',
+            kicked,
+            kicker
+        });
+    }
+
+    /**
+     * Notify external application of the current meeting requiring a password
+     * to join.
+     *
+     * @returns {void}
+     */
+    notifyOnPasswordRequired() {
+        this._sendEvent({ name: 'password-required' });
+    }
+
+    /**
      * Notify external application (if API is enabled) that the screen sharing
      * has been turned on/off.
      *
@@ -587,6 +914,20 @@ class API {
     }
 
     /**
+     * Notify external application (if API is enabled) that the dominant speaker
+     * has been turned on/off.
+     *
+     * @param {string} id - Id of the dominant participant.
+     * @returns {void}
+     */
+    notifyDominantSpeakerChanged(id: string) {
+        this._sendEvent({
+            name: 'dominant-speaker-changed',
+            id
+        });
+    }
+
+    /**
      * Notify external application (if API is enabled) that the conference
      * changed their subject.
      *
@@ -597,6 +938,21 @@ class API {
         this._sendEvent({
             name: 'subject-change',
             subject
+        });
+    }
+
+    /**
+     * Notify external application (if API is enabled) that tile view has been
+     * entered or exited.
+     *
+     * @param {string} enabled - True if tile view is currently displayed, false
+     * otherwise.
+     * @returns {void}
+     */
+    notifyTileViewChanged(enabled: boolean) {
+        this._sendEvent({
+            name: 'tile-view-changed',
+            enabled
         });
     }
 

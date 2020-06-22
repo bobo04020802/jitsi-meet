@@ -19,6 +19,8 @@
 #import <React/RCTBridgeModule.h>
 #import <React/RCTLog.h>
 
+#import "InfoPlistUtil.h"
+
 @interface AppInfo : NSObject<RCTBridgeModule>
 @end
 
@@ -61,12 +63,21 @@ RCT_EXPORT_MODULE();
         }
     }
 
+    // build number
+    NSString *buildNumber = infoDictionary[@"CFBundleVersion"];
+    if (buildNumber == nil) {
+        buildNumber = @"";
+    }
+
+    BOOL isGoogleServiceEnabled = [InfoPlistUtil containsRealServiceInfoPlistInBundle:[NSBundle mainBundle]];
+    
     return @{
         @"calendarEnabled": [NSNumber numberWithBool:calendarEnabled],
+        @"buildNumber": buildNumber,
         @"name": name,
         @"sdkBundlePath": sdkBundlePath,
-        @"version": version
+        @"version": version,
+        @"GOOGLE_SERVICES_ENABLED": [NSNumber numberWithBool:isGoogleServiceEnabled]
     };
 };
-
 @end

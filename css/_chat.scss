@@ -1,6 +1,9 @@
 #sideToolbarContainer {
     background-color: $newToolbarBackgroundColor;
+    box-sizing: border-box;
+    color: #FFF;
     display: flex;
+    flex-direction: column;
     /**
      * Make the sidebar flush with the top of the toolbar. Take the size of
      * the toolbar and subtract from 100%.
@@ -21,20 +24,6 @@
     &.slideInExt {
         left: 0;
     }
-
-    .sideToolbarContainer__inner {
-        box-sizing: border-box;
-        color: #FFF;
-        display: flex;
-        flex-direction: column;
-        height: 100%;
-        width: $sidebarWidth;
-    }
-}
-
-#chat_container * {
-    -webkit-user-select: text;
-    user-select: text;
 }
 
 #chatconversation {
@@ -42,9 +31,8 @@
     flex: 1;
     font-size: 10pt;
     line-height: 20px;
-    margin-top: 15px;
     overflow: auto;
-    padding: 5px;
+    padding: 16px;
     text-align: left;
     width: $sidebarWidth;
     word-wrap: break-word;
@@ -92,26 +80,64 @@
     }
 }
 
-.chat-close {
-    background: gray;
-    border: 3px solid rgba(255, 255, 255, 0.1);
-    border-radius: 100%;
-    color: white;
-    cursor:pointer;
-    height: 10px;
-    line-height: 10px;
-    padding: 4px;
-    position: absolute;
-    right: 5px;
-    text-align: center;
-    top: 5px;
-    width: 10px;
+#chat-recipient {
+    align-items: center;
+    background-color: $chatPrivateMessageBackgroundColor;
+    display: flex;
+    flex-direction: row;
+    font-weight: 100;
+    padding: 10px;
+
+    span {
+        color: white;
+        display: flex;
+        flex: 1;
+    }
+
+    div {
+        svg {
+            cursor: pointer;
+            fill: white
+        }
+    }
+}
+
+.chat-header {
+    background-color: $chatHeaderBackgroundColor;
+    height: 70px;
+    position: relative;
+    width: 100%;
     z-index: 1;
+
+    .chat-close {
+        align-items: center;
+        bottom: 8px;
+        color: white;
+        cursor: pointer;
+        display: flex;
+        font-size: 18px;
+        height: 40px;
+        justify-content: center;
+        line-height: 15px;
+        padding: 4px;
+        position: absolute;
+        right: 5px;
+        width: 40px;
+
+        &:hover {
+            color: rgba(255, 255, 255, 0.8);
+        }
+    }
 }
 
 #chat-input {
-    background-color: $newToolbarBackgroundColor;
+    border-top: 1px solid $chatInputSeparatorColor;
     display: flex;
+    padding: 5px 10px;
+
+    * {
+        background-color: transparent;
+    }
 }
 
 .remoteuser {
@@ -120,20 +146,15 @@
 
 .usrmsg-form {
     flex: 1;
-    margin-left: 5px;
 }
 
 #usermsg {
-    background-color: $newToolbarBackgroundColor;
     border: 0px none;
     border-radius:0;
     box-shadow: none;
     color: white;
-    font-size: 10pt;
-    line-height: 30px;
-    padding: 5px 5px 5px 0px;
-    max-height:150px;
-    min-height:35px;
+    font-size: 15px;
+    padding: 10px;
     overflow-y: auto;
     resize: none;
     width: 100%;
@@ -146,61 +167,51 @@
 }
 
 #nickname {
-    position: absolute;
     text-align: center;
     color: #9d9d9d;
     font-size: 18px;
-    top: 100px;
+    margin-top: 30px;
     left: 5px;
     right: 5px;
-    width: 95%;
 }
 
-#chat_container .display-name {
-    float: left;
-    padding-left: 5px;
-    font-weight: bold;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    width: 95%;
-    overflow: hidden;
-}
+.sideToolbarContainer {
+    * {
+        -webkit-user-select: text;
+        user-select: text;
+    }
 
-#chat_container .timestamp {
-    float: right;
-    padding-right: 5px;
-    font-size: 11px;
-}
-
-.usermessage {
-    padding-top: 20px;
-    padding-left: 5px;
-}
-
-.chatArrow {
-    height: 15px;
-    left: -10px;
-    position: absolute;
+    .display-name {
+        font-size: 13px;
+        font-weight: bold;
+        margin-bottom: 5px;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        overflow: hidden;
+    }
 }
 
 .chatmessage {
-    background-color: $newToolbarBackgroundColor;
-    width: 93%;
-    margin-left: 9px;
-    margin-right: auto;
-    border-radius: 5px;
-    border-top-left-radius: 0px;
-    margin-top: 3px;
+    background-color: $chatRemoteMessageBackgroundColor;
+    border-radius: 0px 6px 6px 6px;
+    box-sizing: border-box;
     color: white;
-    padding-bottom: 3px;
+    margin-top: 3px;
+    max-width: 100%;
     position: relative;
 
-    &.localuser .display-name {
-        color: #4C9AFF
+    &.localuser {
+        background-color: $chatLocalMessageBackgroundColor;
+        border-radius: 6px 0px 6px 6px;
+    }
+
+    .usermessage {
+        white-space: pre-wrap;
     }
 
     &.error {
-        .chatArrow,
+        border-radius: 0px;
+
         .timestamp,
         .display-name {
             display: none;
@@ -211,6 +222,17 @@
             padding: 0;
         }
     }
+
+    .privatemessagenotice {
+        font-size: 11px;
+        font-weight: 100;
+    }
+
+    .messagecontent {
+        margin: 5px 10px;
+        max-width: 100%;
+        overflow: hidden;
+    }
 }
 
 .smiley {
@@ -219,8 +241,6 @@
 
 #smileys {
     font-size: 20pt;
-    display: inline-block;
-    height: 26px;
     margin: auto;
     cursor: pointer;
 }
@@ -231,33 +251,37 @@
 }
 
 #smileysarea {
-    background-color: $newToolbarBackgroundColor;
-    border: 0px none;
     display: flex;
-    height: 70px;
     max-height: 150px;
     min-height: 35px;
-    min-width: 31px;
-    padding: 0px;
     overflow: hidden;
-    width: 17%;
 }
 
 .smiley-input {
+    display: flex;
     position: relative;
 }
 
 .smileys-panel {
     bottom: 100%;
     box-sizing: border-box;
-    height: 0;
+    background-color: rgba(0, 0, 0, .6) !important;
+    height: auto;
+    max-height: 0;
     overflow: hidden;
     position: absolute;
-    transition: height 0.3s;
     width: $sidebarWidth;
 
+    /**
+     * CSS transitions do not apply for auto dimensions. So to produce the css
+     * accordion effect for showing and hiding the smiley-panel, while allowing
+     * for variable panel, height, use a very large max-height and animate off
+     * of that.
+     */
+    transition: max-height 0.3s;
+
     &.show-smileys {
-        height: 146px;
+        max-height: 500%;
     }
 
     #smileysContainer {
@@ -284,10 +308,79 @@
     cursor: pointer;
 }
 
-#usermsg::-webkit-input-placeholder {
-    line-height: 30px;
-}
-
 #usermsg::-webkit-scrollbar-track-piece {
     background: #3a3a3a;
+}
+
+.chat-message-group {
+    display: flex;
+    flex-direction: column;
+
+    &.local {
+        align-items: flex-end;
+
+        .chatmessage {
+            background-color: $chatLocalMessageBackgroundColor;
+            border-radius: 6px 0px 6px 6px;
+
+            &.privatemessage {
+                background-color: $chatPrivateMessageBackgroundColor;
+            }
+        }
+
+        .display-name {
+            display: none;
+        }
+
+        .timestamp {
+            text-align: right;
+        }
+    }
+
+    &.error {
+        .chatmessage {
+            background-color: $defaultWarningColor;
+            border-radius: 0px;
+            font-weight: 100;
+        }
+
+        .display-name {
+            display: none;
+        }
+    }
+
+    .chatmessage-wrapper {
+        max-width: 100%;
+
+        .replywrapper {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+
+            .messageactions {
+                align-self: stretch;
+                border-left: 1px solid $chatActionsSeparatorColor;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                padding: 5px;
+
+                .toolbox-icon {
+                    cursor: pointer;
+                }
+            }
+        }
+    }
+
+    .chatmessage {
+        background-color: $chatRemoteMessageBackgroundColor;
+        border-radius: 0px 6px 6px 6px;
+        display: inline-block;
+        margin-top: 3px;
+        color: white;
+
+        &.privatemessage {
+            background-color: $chatPrivateMessageBackgroundColor;
+        }
+    }
 }

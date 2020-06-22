@@ -1,3 +1,5 @@
+// @flow
+
 /**
  * The type of the Redux action which signals that the prompt for media
  * permission is visible or not.
@@ -11,16 +13,6 @@
  */
 export const MEDIA_PERMISSION_PROMPT_VISIBILITY_CHANGED
     = 'MEDIA_PERMISSION_PROMPT_VISIBILITY_CHANGED';
-
-/**
- * The type of the Redux action which signals that a suspend was detected.
- *
- * {
- *     type: SUSPEND_DETECTED
- * }
- * @public
- */
-export const SUSPEND_DETECTED = 'SUSPEND_DETECTED';
 
 /**
  * Adjust the state of the fatal error which shows/hides the reload screen. See

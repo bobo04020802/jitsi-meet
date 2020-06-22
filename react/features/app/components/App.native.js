@@ -2,33 +2,22 @@
 
 import React from 'react';
 
-import '../../analytics';
-import '../../authentication';
 import { setColorScheme } from '../../base/color-scheme';
 import { DialogContainer } from '../../base/dialog';
-import '../../base/jwt';
+import { CALL_INTEGRATION_ENABLED, updateFlags } from '../../base/flags';
 import { Platform } from '../../base/react';
-import {
-    AspectRatioDetector,
-    ReducedUIDetector
-} from '../../base/responsive-ui';
-import '../../google-api';
-import '../../mobile/audio-mode';
-import '../../mobile/background';
-import '../../mobile/call-integration';
-import '../../mobile/external-api';
-import '../../mobile/full-screen';
-import '../../mobile/permissions';
-import '../../mobile/picture-in-picture';
-import '../../mobile/proximity';
-import '../../mobile/wake-lock';
+import { DimensionsDetector, clientResized } from '../../base/responsive-ui';
+import { updateSettings } from '../../base/settings';
+import logger from '../logger';
 
 import { AbstractApp } from './AbstractApp';
 import type { Props as AbstractAppProps } from './AbstractApp';
 
-declare var __DEV__;
+// Register middlewares and reducers.
+import '../middlewares';
+import '../reducers';
 
-const logger = require('jitsi-meet-logger').getLogger(__filename);
+declare var __DEV__;
 
 /**
  * The type of React {@code Component} props of {@link App}.
@@ -46,18 +35,14 @@ type Props = AbstractAppProps & {
     externalAPIScope: string,
 
     /**
-     * Whether Picture-in-Picture is enabled. If {@code true}, a toolbar button
-     * is rendered in the {@link Conference} view to afford entering
-     * Picture-in-Picture.
+     * An object with the feature flags.
      */
-    pictureInPictureEnabled: boolean,
+    flags: Object,
 
     /**
-     * Whether the Welcome page is enabled. If {@code true}, the Welcome page is
-     * rendered when the {@link App} is not at a location (URL) identifying
-     * a Jitsi Meet conference/room.
+     * An object with user information (display name, email, avatar URL).
      */
-    welcomePageEnabled: boolean
+    userInfo: ?Object
 };
 
 /**
@@ -82,6 +67,9 @@ export class App extends AbstractApp {
         // This will effectively kill the app. In accord with the Web, do not
         // kill the app.
         this._maybeDisableExceptionsManager();
+
+        // Bind event handler so it is only bound once per instance.
+        this._onDimensionsChanged = this._onDimensionsChanged.bind(this);
     }
 
     /**
@@ -95,25 +83,34 @@ export class App extends AbstractApp {
         super.componentDidMount();
 
         this._init.then(() => {
-            // We set the color scheme early enough so then we avoid any
-            // unnecessary re-renders.
-            this.state.store.dispatch(setColorScheme(this.props.colorScheme));
+            // We set these early enough so then we avoid any unnecessary re-renders.
+            const { dispatch } = this.state.store;
+
+            dispatch(setColorScheme(this.props.colorScheme));
+            dispatch(updateFlags(this.props.flags));
+            dispatch(updateSettings(this.props.userInfo || {}));
+
+            // Update settings with feature-flag.
+            const callIntegrationEnabled = this.props.flags[CALL_INTEGRATION_ENABLED];
+
+            if (typeof callIntegrationEnabled !== 'undefined') {
+                dispatch(updateSettings({ disableCallIntegration: !callIntegrationEnabled }));
+            }
         });
     }
 
     /**
-     * Injects {@link AspectRatioDetector} in order to detect the aspect ratio
-     * of this {@code App}'s user interface and afford {@link AspectRatioAware}.
+     * Overrides the parent method to inject {@link DimensionsDetector} as
+     * the top most component.
      *
      * @override
      */
     _createMainElement(component, props) {
         return (
-            <AspectRatioDetector>
-                <ReducedUIDetector>
-                    { super._createMainElement(component, props) }
-                </ReducedUIDetector>
-            </AspectRatioDetector>
+            <DimensionsDetector
+                onDimensionsChanged = { this._onDimensionsChanged }>
+                { super._createMainElement(component, props) }
+            </DimensionsDetector>
         );
     }
 
@@ -152,6 +149,22 @@ export class App extends AbstractApp {
             newHandler.next = oldHandler;
             global.ErrorUtils.setGlobalHandler(newHandler);
         }
+    }
+
+    _onDimensionsChanged: (width: number, height: number) => void;
+
+    /**
+     * Updates the known available size for the app to occupy.
+     *
+     * @param {number} width - The component's current width.
+     * @param {number} height - The component's current height.
+     * @private
+     * @returns {void}
+     */
+    _onDimensionsChanged(width: number, height: number) {
+        const { dispatch } = this.state.store;
+
+        dispatch(clientResized(width, height));
     }
 
     /**

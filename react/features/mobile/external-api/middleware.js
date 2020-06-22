@@ -11,9 +11,14 @@ import {
     isRoomValid
 } from '../../base/conference';
 import { LOAD_CONFIG_ERROR } from '../../base/config';
-import { CONNECTION_FAILED } from '../../base/connection';
+import {
+    CONNECTION_DISCONNECTED,
+    CONNECTION_FAILED,
+    JITSI_CONNECTION_CONFERENCE_KEY,
+    JITSI_CONNECTION_URL_KEY,
+    getURLWithoutParams
+} from '../../base/connection';
 import { MiddlewareRegistry } from '../../base/redux';
-import { toURLString } from '../../base/util';
 import { ENTER_PICTURE_IN_PICTURE } from '../picture-in-picture';
 
 import { sendEvent } from './functions';
@@ -63,6 +68,27 @@ MiddlewareRegistry.register(store => next => action => {
         _sendConferenceEvent(store, action);
         break;
 
+    case CONNECTION_DISCONNECTED: {
+        // FIXME: This is a hack. See the description in the JITSI_CONNECTION_CONFERENCE_KEY constant definition.
+        // Check if this connection was attached to any conference. If it wasn't, fake a CONFERENCE_TERMINATED event.
+        const { connection } = action;
+        const conference = connection[JITSI_CONNECTION_CONFERENCE_KEY];
+
+        if (!conference) {
+            // This action will arrive late, so the locationURL stored on the state is no longer valid.
+            const locationURL = connection[JITSI_CONNECTION_URL_KEY];
+
+            sendEvent(
+                store,
+                CONFERENCE_TERMINATED,
+                /* data */ {
+                    url: _normalizeUrl(locationURL)
+                });
+        }
+
+        break;
+    }
+
     case CONNECTION_FAILED:
         !action.error.recoverable
             && _sendConferenceFailedOnConnectionError(store, action);
@@ -80,7 +106,7 @@ MiddlewareRegistry.register(store => next => action => {
             CONFERENCE_TERMINATED,
             /* data */ {
                 error: _toErrorString(error),
-                url: toURLString(locationURL)
+                url: _normalizeUrl(locationURL)
             });
         break;
     }
@@ -135,8 +161,18 @@ function _maybeTriggerEarlyConferenceWillJoin(store, action) {
         store,
         CONFERENCE_WILL_JOIN,
         /* data */ {
-            url: toURLString(locationURL)
+            url: _normalizeUrl(locationURL)
         });
+}
+
+/**
+ * Normalizes the given URL for presentation over the external API.
+ *
+ * @param {URL} url -The URL to normalize.
+ * @returns {string} - The normalized URL as a string.
+ */
+function _normalizeUrl(url: URL) {
+    return getURLWithoutParams(url).href;
 }
 
 /**
@@ -160,7 +196,7 @@ function _sendConferenceEvent(
     // instance. The external API cannot transport such an object so we have to
     // transport an "equivalent".
     if (conference) {
-        data.url = toURLString(conference[JITSI_CONFERENCE_URL_KEY]);
+        data.url = _normalizeUrl(conference[JITSI_CONFERENCE_URL_KEY]);
     }
 
     if (_swallowEvent(store, action, data)) {
@@ -207,7 +243,7 @@ function _sendConferenceFailedOnConnectionError(store, action) {
         store,
         CONFERENCE_TERMINATED,
         /* data */ {
-            url: toURLString(locationURL),
+            url: _normalizeUrl(locationURL),
             error: action.error.name
         });
 }

@@ -36,6 +36,12 @@ export type Props = {
     accessibilityLabel: string,
 
     /**
+     * An extra class name to be added at the end of the element's class name
+     * in order to enable custom styling.
+     */
+    customClass?: string,
+
+    /**
      * Whether this item is disabled or not. When disabled, clicking an the item
      * has no effect, and it may reflect on its style.
      */
@@ -47,9 +53,9 @@ export type Props = {
     elementAfter?: React$Node,
 
     /**
-     * The name of the icon of this {@code ToolboxItem}.
+     * The icon to render for this {@code ToolboxItem}.
      */
-    iconName: string,
+    icon: Object,
 
     /**
      * The text associated with this item. When `showLabel` is set to
@@ -76,6 +82,11 @@ export type Props = {
      * Invoked to obtain translated strings.
      */
     t: ?Function,
+
+    /**
+     * True if the item is toggled, false otherwise.
+     */
+    toggled: boolean,
 
     /**
      * The text to display in the tooltip. Used only on web.

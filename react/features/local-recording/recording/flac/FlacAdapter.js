@@ -1,3 +1,6 @@
+import logger from '../../logger';
+import { AbstractAudioContextAdapter } from '../AbstractAudioContextAdapter';
+
 import {
     DEBUG,
     MAIN_THREAD_FINISH,
@@ -7,9 +10,6 @@ import {
     WORKER_LIBFLAC_READY
 } from './messageTypes';
 
-import { AbstractAudioContextAdapter } from '../AbstractAudioContextAdapter';
-
-const logger = require('jitsi-meet-logger').getLogger(__filename);
 
 /**
  * Recording adapter that uses libflac.js in the background.
@@ -249,11 +249,11 @@ export class FlacAdapter extends AbstractAudioContextAdapter {
         // only when flac recording is in use.
         try {
             // try load the minified version first
-            this._encoder = new Worker('/libs/flacEncodeWorker.min.js');
+            this._encoder = new Worker('/libs/flacEncodeWorker.min.js', { name: 'FLAC encoder worker' });
         } catch (exception1) {
             // if failed, try unminified version
             try {
-                this._encoder = new Worker('/libs/flacEncodeWorker.js');
+                this._encoder = new Worker('/libs/flacEncodeWorker.js', { name: 'FLAC encoder worker' });
             } catch (exception2) {
                 throw new Error('Failed to load flacEncodeWorker.');
             }

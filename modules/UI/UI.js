@@ -1,38 +1,32 @@
 /* global APP, $, config, interfaceConfig */
 
-const logger = require('jitsi-meet-logger').getLogger(__filename);
 
 const UI = {};
 
-import messageHandler from './util/MessageHandler';
-import UIUtil from './util/UIUtil';
-import UIEvents from '../../service/UI/UIEvents';
-import EtherpadManager from './etherpad/Etherpad';
-import SharedVideoManager from './shared_video/SharedVideo';
+import EventEmitter from 'events';
+import Logger from 'jitsi-meet-logger';
 
-import VideoLayout from './videolayout/VideoLayout';
-import Filmstrip from './videolayout/Filmstrip';
-
-import { JitsiTrackErrors } from '../../react/features/base/lib-jitsi-meet';
 import { getLocalParticipant } from '../../react/features/base/participants';
 import { toggleChat } from '../../react/features/chat';
-import { openDisplayNamePrompt } from '../../react/features/display-name';
-import { setEtherpadHasInitialzied } from '../../react/features/etherpad';
+import { setDocumentUrl } from '../../react/features/etherpad';
 import { setFilmstripVisible } from '../../react/features/filmstrip';
-import {
-    setNotificationsEnabled,
-    showWarningNotification
-} from '../../react/features/notifications';
+import { joinLeaveNotificationsDisabled, setNotificationsEnabled } from '../../react/features/notifications';
 import {
     dockToolbox,
     setToolboxEnabled,
     showToolbox
 } from '../../react/features/toolbox';
+import UIEvents from '../../service/UI/UIEvents';
 
-const EventEmitter = require('events');
+import EtherpadManager from './etherpad/Etherpad';
+import SharedVideoManager from './shared_video/SharedVideo';
+import messageHandler from './util/MessageHandler';
+import UIUtil from './util/UIUtil';
+import VideoLayout from './videolayout/VideoLayout';
+
+const logger = Logger.getLogger(__filename);
 
 UI.messageHandler = messageHandler;
-import FollowMe from '../FollowMe';
 
 const eventEmitter = new EventEmitter();
 
@@ -40,41 +34,6 @@ UI.eventEmitter = eventEmitter;
 
 let etherpadManager;
 let sharedVideoManager;
-
-let followMeHandler;
-
-const JITSI_TRACK_ERROR_TO_MESSAGE_KEY_MAP = {
-    microphone: {},
-    camera: {}
-};
-
-JITSI_TRACK_ERROR_TO_MESSAGE_KEY_MAP
-    .camera[JitsiTrackErrors.UNSUPPORTED_RESOLUTION]
-        = 'dialog.cameraUnsupportedResolutionError';
-JITSI_TRACK_ERROR_TO_MESSAGE_KEY_MAP.camera[JitsiTrackErrors.GENERAL]
-    = 'dialog.cameraUnknownError';
-JITSI_TRACK_ERROR_TO_MESSAGE_KEY_MAP.camera[JitsiTrackErrors.PERMISSION_DENIED]
-    = 'dialog.cameraPermissionDeniedError';
-JITSI_TRACK_ERROR_TO_MESSAGE_KEY_MAP.camera[JitsiTrackErrors.NOT_FOUND]
-    = 'dialog.cameraNotFoundError';
-JITSI_TRACK_ERROR_TO_MESSAGE_KEY_MAP.camera[JitsiTrackErrors.CONSTRAINT_FAILED]
-    = 'dialog.cameraConstraintFailedError';
-JITSI_TRACK_ERROR_TO_MESSAGE_KEY_MAP
-    .camera[JitsiTrackErrors.NO_DATA_FROM_SOURCE]
-        = 'dialog.cameraNotSendingData';
-JITSI_TRACK_ERROR_TO_MESSAGE_KEY_MAP.microphone[JitsiTrackErrors.GENERAL]
-    = 'dialog.micUnknownError';
-JITSI_TRACK_ERROR_TO_MESSAGE_KEY_MAP
-    .microphone[JitsiTrackErrors.PERMISSION_DENIED]
-        = 'dialog.micPermissionDeniedError';
-JITSI_TRACK_ERROR_TO_MESSAGE_KEY_MAP.microphone[JitsiTrackErrors.NOT_FOUND]
-    = 'dialog.micNotFoundError';
-JITSI_TRACK_ERROR_TO_MESSAGE_KEY_MAP
-    .microphone[JitsiTrackErrors.CONSTRAINT_FAILED]
-        = 'dialog.micConstraintFailedError';
-JITSI_TRACK_ERROR_TO_MESSAGE_KEY_MAP
-    .microphone[JitsiTrackErrors.NO_DATA_FROM_SOURCE]
-        = 'dialog.micNotSendingData';
 
 const UIListeners = new Map([
     [
@@ -86,9 +45,6 @@ const UIListeners = new Map([
     ], [
         UIEvents.TOGGLE_FILMSTRIP,
         () => UI.toggleFilmstrip()
-    ], [
-        UIEvents.FOLLOW_ME_ENABLED,
-        enabled => followMeHandler && followMeHandler.enableFollowMe(enabled)
     ]
 ]);
 
@@ -143,30 +99,6 @@ UI.notifyReservationError = function(code, msg) {
 };
 
 /**
- * Notify user that he has been kicked from the server.
- */
-UI.notifyKicked = function() {
-    messageHandler.showError({
-        hideErrorSupportLink: true,
-        descriptionKey: 'dialog.kickMessage',
-        titleKey: 'dialog.kickTitle'
-    });
-};
-
-/**
- * Notify user that conference was destroyed.
- * @param reason {string} the reason text
- */
-UI.notifyConferenceDestroyed = function(reason) {
-    // FIXME: use Session Terminated from translation, but
-    // 'reason' text comes from XMPP packet and is not translated
-    messageHandler.showError({
-        description: reason,
-        titleKey: 'dialog.sessTerminated'
-    });
-};
-
-/**
  * Change nickname for the user.
  * @param {string} id user id
  * @param {string} displayName new nickname
@@ -176,46 +108,11 @@ UI.changeDisplayName = function(id, displayName) {
 };
 
 /**
- * Sets the "raised hand" status for a participant.
- *
- * @param {string} id - The id of the participant whose raised hand UI should
- * be updated.
- * @param {string} name - The name of the participant with the raised hand
- * update.
- * @param {boolean} raisedHandStatus - Whether the participant's hand is raised
- * or not.
- * @returns {void}
- */
-UI.setRaisedHandStatus = (id, name, raisedHandStatus) => {
-    VideoLayout.setRaisedHandStatus(id, raisedHandStatus);
-    if (raisedHandStatus) {
-        messageHandler.participantNotification(
-            name,
-            'notify.somebody',
-            'connected',
-            'notify.raisedHand');
-    }
-};
-
-/**
- * Sets the local "raised hand" status.
- */
-UI.setLocalRaisedHandStatus
-    = raisedHandStatus =>
-        VideoLayout.setRaisedHandStatus(
-            APP.conference.getMyUserId(),
-            raisedHandStatus);
-
-/**
  * Initialize conference UI.
  */
 UI.initConference = function() {
     const { getState } = APP.store;
     const { id, name } = getLocalParticipant(getState);
-
-    // Update default button states before showing the toolbar
-    // if local role changes buttons state will be again updated.
-    UI.updateLocalRole(APP.conference.isModerator);
 
     UI.showToolbar();
 
@@ -224,12 +121,6 @@ UI.initConference = function() {
     if (displayName) {
         UI.changeDisplayName('localVideoContainer', displayName);
     }
-
-    // FollowMe attempts to copy certain aspects of the moderator's UI into the
-    // other participants' UI. Consequently, it needs (1) read and write access
-    // to the UI (depending on the moderator role of the local participant) and
-    // (2) APP.conference as means of communication between the participants.
-    followMeHandler = new FollowMe(APP.conference, UI);
 };
 
 /**
@@ -247,12 +138,8 @@ UI.getSharedVideoManager = function() {
  * established, false - otherwise (for example in the case of welcome page)
  */
 UI.start = function() {
-    document.title = interfaceConfig.APP_NAME;
-
     // Set the defaults for prompt dialogs.
     $.prompt.setDefaults({ persistent: false });
-
-    Filmstrip.init(eventEmitter);
 
     VideoLayout.init(eventEmitter);
     if (!interfaceConfig.filmStripOnly) {
@@ -263,7 +150,7 @@ UI.start = function() {
     // resizeVideoArea) because the animation is not visible anyway. Plus with
     // the current dom layout, the quality label is part of the video layout and
     // will be seen animating in.
-    VideoLayout.resizeVideoArea(true, false);
+    VideoLayout.resizeVideoArea();
 
     sharedVideoManager = new SharedVideoManager(eventEmitter);
 
@@ -274,14 +161,12 @@ UI.start = function() {
         // in case of iAmSipGateway keep local video visible
         if (!config.iAmSipGateway) {
             VideoLayout.setLocalVideoVisible(false);
+            APP.store.dispatch(setNotificationsEnabled(false));
         }
 
         APP.store.dispatch(setToolboxEnabled(false));
-        APP.store.dispatch(setNotificationsEnabled(false));
         UI.messageHandler.enablePopups(false);
     }
-
-    document.title = interfaceConfig.APP_NAME;
 };
 
 /**
@@ -298,7 +183,7 @@ UI.bindEvents = () => {
      *
      */
     function onResize() {
-        VideoLayout.resizeVideoArea();
+        VideoLayout.onResize();
     }
 
     // Resize and reposition videos in full screen mode.
@@ -320,29 +205,12 @@ UI.unbindEvents = () => {
 };
 
 /**
- * Show local stream on UI.
+ * Show local video stream on UI.
  * @param {JitsiTrack} track stream to show
  */
-UI.addLocalStream = track => {
-    switch (track.getType()) {
-    case 'audio':
-        // Local audio is not rendered so no further action is needed at this
-        // point.
-        break;
-    case 'video':
-        VideoLayout.changeLocalVideo(track);
-        break;
-    default:
-        logger.error(`Unknown stream type: ${track.getType()}`);
-        break;
-    }
+UI.addLocalVideoStream = track => {
+    VideoLayout.changeLocalVideo(track);
 };
-
-/**
- * Removed remote stream from UI.
- * @param {JitsiTrack} track stream to remove
- */
-UI.removeRemoteStream = track => VideoLayout.onRemoteStreamRemoved(track);
 
 /**
  * Setup and show Etherpad.
@@ -353,10 +221,12 @@ UI.initEtherpad = name => {
         return;
     }
     logger.log('Etherpad is enabled');
-    etherpadManager
-        = new EtherpadManager(config.etherpad_base, name, eventEmitter);
 
-    APP.store.dispatch(setEtherpadHasInitialzied());
+    etherpadManager = new EtherpadManager(eventEmitter);
+
+    const url = new URL(name, config.etherpad_base);
+
+    APP.store.dispatch(setDocumentUrl(url.toString()));
 };
 
 /**
@@ -394,44 +264,6 @@ UI.onPeerVideoTypeChanged
     = (id, newVideoType) => VideoLayout.onVideoTypeChanged(id, newVideoType);
 
 /**
- * Update local user role and show notification if user is moderator.
- * @param {boolean} isModerator if local user is moderator or not
- */
-UI.updateLocalRole = isModerator => {
-    VideoLayout.showModeratorIndicator();
-
-    if (isModerator && !interfaceConfig.DISABLE_FOCUS_INDICATOR) {
-        messageHandler.participantNotification(
-            null, 'notify.me', 'connected', 'notify.moderator');
-    }
-};
-
-/**
- * Check the role for the user and reflect it in the UI, moderator ui indication
- * and notifies user who is the moderator
- * @param user to check for moderator
- */
-UI.updateUserRole = user => {
-    VideoLayout.showModeratorIndicator();
-
-    // We don't need to show moderator notifications when the focus (moderator)
-    // indicator is disabled.
-    if (!user.isModerator() || interfaceConfig.DISABLE_FOCUS_INDICATOR) {
-        return;
-    }
-
-    const displayName = user.getDisplayName();
-
-    messageHandler.participantNotification(
-        displayName,
-        'notify.somebody',
-        'connected',
-        'notify.grantedTo',
-        { to: displayName
-            ? UIUtil.escapeHtml(displayName) : '$t(notify.somebody)' });
-};
-
-/**
  * Updates the user status.
  *
  * @param {JitsiParticipant} user - The user which status we need to update.
@@ -441,7 +273,9 @@ UI.updateUserStatus = (user, status) => {
     const reduxState = APP.store.getState() || {};
     const { calleeInfoVisible } = reduxState['features/invite'] || {};
 
-    if (!status || calleeInfoVisible) {
+    // We hide status updates when join/leave notifications are disabled,
+    // as jigasi is the component with statuses and they are seen as join/leave notifications.
+    if (!status || calleeInfoVisible || joinLeaveNotificationsDisabled()) {
         return;
     }
 
@@ -465,12 +299,6 @@ UI.toggleFilmstrip = function() {
 };
 
 /**
- * Checks if the filmstrip is currently visible or not.
- * @returns {true} if the filmstrip is currently visible, and false otherwise.
- */
-UI.isFilmstripVisible = () => Filmstrip.isFilmstripVisible();
-
-/**
  * Toggles the visibility of the chat panel.
  */
 UI.toggleChat = () => APP.store.dispatch(toggleChat());
@@ -480,15 +308,6 @@ UI.toggleChat = () => APP.store.dispatch(toggleChat());
  */
 UI.inputDisplayNameHandler = function(newDisplayName) {
     eventEmitter.emit(UIEvents.NICKNAME_CHANGED, newDisplayName);
-};
-
-/**
- * Return the type of the remote video.
- * @param jid the jid for the remote video
- * @returns the video type video or screen.
- */
-UI.getRemoteVideoType = function(jid) {
-    return VideoLayout.getRemoteVideoType(jid);
 };
 
 // FIXME check if someone user this
@@ -607,8 +426,8 @@ UI.dockToolbar = dock => APP.store.dispatch(dockToolbox(dock));
  * @param {string} avatarURL - The URL to avatar image to display.
  * @returns {void}
  */
-UI.refreshAvatarDisplay = function(id, avatarURL) {
-    VideoLayout.changeUserAvatar(id, avatarURL);
+UI.refreshAvatarDisplay = function(id) {
+    VideoLayout.changeUserAvatar(id);
 };
 
 /**
@@ -659,13 +478,6 @@ UI.notifyInitiallyMuted = function() {
 
 UI.handleLastNEndpoints = function(leavingIds, enteringIds) {
     VideoLayout.onLastNEndpointsChanged(leavingIds, enteringIds);
-};
-
-/**
- * Prompt user for nickname.
- */
-UI.promptDisplayName = () => {
-    APP.store.dispatch(openDisplayNamePrompt(undefined));
 };
 
 /**
@@ -739,163 +551,6 @@ UI.getLargeVideoID = function() {
  */
 UI.getLargeVideo = function() {
     return VideoLayout.getLargeVideo();
-};
-
-/**
- * Shows "Please go to chrome webstore to install the desktop sharing extension"
- * 2 button dialog with buttons - cancel and go to web store.
- * @param url {string} the url of the extension.
- */
-UI.showExtensionExternalInstallationDialog = function(url) {
-    let openedWindow = null;
-
-    const submitFunction = function(e, v) {
-        if (v) {
-            e.preventDefault();
-            if (openedWindow === null || openedWindow.closed) {
-                openedWindow
-                    = window.open(
-                        url,
-                        'extension_store_window',
-                        'resizable,scrollbars=yes,status=1');
-            } else {
-                openedWindow.focus();
-            }
-        }
-    };
-
-    const closeFunction = function(e, v) {
-        if (openedWindow) {
-            // Ideally we would close the popup, but this does not seem to work
-            // on Chrome. Leaving it uncommented in case it could work
-            // in some version.
-            openedWindow.close();
-            openedWindow = null;
-        }
-        if (!v) {
-            eventEmitter.emit(UIEvents.EXTERNAL_INSTALLATION_CANCELED);
-        }
-    };
-
-    messageHandler.openTwoButtonDialog({
-        titleKey: 'dialog.externalInstallationTitle',
-        msgKey: 'dialog.externalInstallationMsg',
-        leftButtonKey: 'dialog.goToStore',
-        submitFunction,
-        loadedFunction: $.noop,
-        closeFunction
-    });
-};
-
-/**
- * Shows a dialog which asks user to install the extension. This one is
- * displayed after installation is triggered from the script, but fails because
- * it must be initiated by user gesture.
- * @param callback {function} function to be executed after user clicks
- * the install button - it should make another attempt to install the extension.
- */
-UI.showExtensionInlineInstallationDialog = function(callback) {
-    const submitFunction = function(e, v) {
-        if (v) {
-            callback();
-        }
-    };
-
-    const closeFunction = function(e, v) {
-        if (!v) {
-            eventEmitter.emit(UIEvents.EXTERNAL_INSTALLATION_CANCELED);
-        }
-    };
-
-    messageHandler.openTwoButtonDialog({
-        titleKey: 'dialog.externalInstallationTitle',
-        msgKey: 'dialog.inlineInstallationMsg',
-        leftButtonKey: 'dialog.inlineInstallExtension',
-        submitFunction,
-        loadedFunction: $.noop,
-        closeFunction
-    });
-};
-
-/**
- * Shows a notifications about the passed in microphone error.
- *
- * @param {JitsiTrackError} micError - An error object related to using or
- * acquiring an audio stream.
- * @returns {void}
- */
-UI.showMicErrorNotification = function(micError) {
-    if (!micError) {
-        return;
-    }
-
-    const { message, name } = micError;
-
-    const micJitsiTrackErrorMsg
-        = JITSI_TRACK_ERROR_TO_MESSAGE_KEY_MAP.microphone[name];
-    const micErrorMsg = micJitsiTrackErrorMsg
-        || JITSI_TRACK_ERROR_TO_MESSAGE_KEY_MAP
-            .microphone[JitsiTrackErrors.GENERAL];
-    const additionalMicErrorMsg = micJitsiTrackErrorMsg ? null : message;
-
-    APP.store.dispatch(showWarningNotification({
-        description: additionalMicErrorMsg,
-        descriptionKey: micErrorMsg,
-        titleKey: name === JitsiTrackErrors.PERMISSION_DENIED
-            ? 'deviceError.microphonePermission'
-            : 'deviceError.microphoneError'
-    }));
-};
-
-/**
- * Shows a notifications about the passed in camera error.
- *
- * @param {JitsiTrackError} cameraError - An error object related to using or
- * acquiring a video stream.
- * @returns {void}
- */
-UI.showCameraErrorNotification = function(cameraError) {
-    if (!cameraError) {
-        return;
-    }
-
-    const { message, name } = cameraError;
-
-    const cameraJitsiTrackErrorMsg
-        = JITSI_TRACK_ERROR_TO_MESSAGE_KEY_MAP.camera[name];
-    const cameraErrorMsg = cameraJitsiTrackErrorMsg
-        || JITSI_TRACK_ERROR_TO_MESSAGE_KEY_MAP
-            .camera[JitsiTrackErrors.GENERAL];
-    const additionalCameraErrorMsg = cameraJitsiTrackErrorMsg ? null : message;
-
-    APP.store.dispatch(showWarningNotification({
-        description: additionalCameraErrorMsg,
-        descriptionKey: cameraErrorMsg,
-        titleKey: name === JitsiTrackErrors.PERMISSION_DENIED
-            ? 'deviceError.cameraPermission' : 'deviceError.cameraError'
-    }));
-};
-
-/**
- * Shows error dialog that informs the user that no data is received from the
- * device.
- *
- * @param {boolean} isAudioTrack - Whether or not the dialog is for an audio
- * track error.
- * @returns {void}
- */
-UI.showTrackNotWorkingDialog = function(isAudioTrack) {
-    messageHandler.showError({
-        descriptionKey: isAudioTrack
-            ? 'dialog.micNotSendingData' : 'dialog.cameraNotSendingData',
-        titleKey: isAudioTrack
-            ? 'dialog.micNotSendingDataTitle'
-            : 'dialog.cameraNotSendingDataTitle'
-    });
-};
-
-UI.updateDevicesAvailability = function(id, devices) {
-    VideoLayout.setDeviceAvailabilityIcons(id, devices);
 };
 
 /**

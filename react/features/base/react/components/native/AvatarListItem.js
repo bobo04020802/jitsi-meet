@@ -3,10 +3,8 @@
 import React, { Component } from 'react';
 import { Text } from 'react-native';
 
-import { Icon } from '../../../font-icons';
-import { Avatar } from '../../../participants';
+import { Avatar } from '../../../avatar';
 import { StyleType } from '../../../styles';
-
 import { type Item } from '../../Types';
 
 import Container from './Container';
@@ -15,9 +13,19 @@ import styles, { AVATAR_SIZE, UNDERLAY_COLOR } from './styles';
 type Props = {
 
     /**
+     * If true, only the avatar gets rendered, no lines of text.
+     */
+    avatarOnly?: boolean,
+
+    /**
      * Preferred size of the avatar.
      */
     avatarSize?: number,
+
+    /**
+     * One of the expected status strings (e.g. 'available') to render a badge on the avatar, if necessary.
+     */
+    avatarStatus?: ?string,
 
     /**
      * External style to be applied to the avatar (icon).
@@ -71,74 +79,32 @@ export default class AvatarListItem extends Component<Props> {
     }
 
     /**
-     * Helper function to render the content in the avatar container.
-     *
-     * @returns {React$Element}
-     */
-    _getAvatarContent() {
-        const {
-            avatarSize = AVATAR_SIZE,
-            avatarTextStyle
-        } = this.props;
-        const { avatar, title } = this.props.item;
-        const isAvatarURL = Boolean(avatar && avatar.match(/^http[s]*:\/\//i));
-
-        if (isAvatarURL) {
-            return (
-                <Avatar
-                    size = { avatarSize }
-                    uri = { avatar } />
-            );
-        }
-
-        if (avatar && !isAvatarURL) {
-            return (
-                <Icon name = { avatar } />
-            );
-        }
-
-        return (
-            <Text
-                style = { [
-                    styles.avatarContent,
-                    avatarTextStyle
-                ] }>
-                { title.substr(0, 1).toUpperCase() }
-            </Text>
-        );
-    }
-
-    /**
      * Implements {@code Component#render}.
      *
      * @inheritdoc
      */
     render() {
         const {
+            avatarOnly,
             avatarSize = AVATAR_SIZE,
+            avatarStatus,
             avatarStyle
         } = this.props;
-        const { colorBase, lines, title } = this.props.item;
-        const avatarStyles = {
-            ...styles.avatar,
-            ...this._getAvatarColor(colorBase),
-            ...avatarStyle,
-            borderRadius: avatarSize / 2,
-            height: avatarSize,
-            width: avatarSize
-        };
+        const { avatar, colorBase, lines, title } = this.props.item;
 
         return (
             <Container
                 onClick = { this.props.onPress }
                 style = { styles.listItem }
                 underlayColor = { UNDERLAY_COLOR }>
-                <Container style = { styles.avatarContainer }>
-                    <Container style = { avatarStyles }>
-                        { this._getAvatarContent() }
-                    </Container>
-                </Container>
-                <Container style = { styles.listItemDetails }>
+                <Avatar
+                    colorBase = { colorBase }
+                    displayName = { title }
+                    size = { avatarSize }
+                    status = { avatarStatus }
+                    style = { avatarStyle }
+                    url = { avatar } />
+                { avatarOnly || <Container style = { styles.listItemDetails }>
                     <Text
                         numberOfLines = { 1 }
                         style = { [
@@ -149,31 +115,10 @@ export default class AvatarListItem extends Component<Props> {
                         { title }
                     </Text>
                     {this._renderItemLines(lines)}
-                </Container>
+                </Container>}
                 { this.props.children }
             </Container>
         );
-    }
-
-    /**
-     * Returns a style (color) based on the string that determines the color of
-     * the avatar.
-     *
-     * @param {string} colorBase - The string that is the base of the color.
-     * @private
-     * @returns {Object}
-     */
-    _getAvatarColor(colorBase) {
-        if (!colorBase) {
-            return null;
-        }
-        let nameHash = 0;
-
-        for (let i = 0; i < colorBase.length; i++) {
-            nameHash += colorBase.codePointAt(i);
-        }
-
-        return styles[`avatarColor${(nameHash % 5) + 1}`];
     }
 
     _renderItemLine: (string, number) => React$Node;

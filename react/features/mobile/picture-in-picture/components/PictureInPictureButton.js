@@ -1,11 +1,13 @@
 // @flow
 
-import { getAppProp } from '../../../base/app';
+import { Platform } from 'react-native';
+
+import { PIP_ENABLED, getFeatureFlag } from '../../../base/flags';
 import { translate } from '../../../base/i18n';
+import { IconMenuDown } from '../../../base/icons';
 import { connect } from '../../../base/redux';
 import { AbstractButton } from '../../../base/toolbox';
 import type { AbstractButtonProps } from '../../../base/toolbox';
-
 import { enterPictureInPicture } from '../actions';
 
 type Props = AbstractButtonProps & {
@@ -26,7 +28,7 @@ type Props = AbstractButtonProps & {
  */
 class PictureInPictureButton extends AbstractButton<Props, *> {
     accessibilityLabel = 'toolbar.accessibilityLabel.pip';
-    iconName = 'icon-menu-down';
+    icon = IconMenuDown;
     label = 'toolbar.pip';
 
     /**
@@ -61,8 +63,17 @@ class PictureInPictureButton extends AbstractButton<Props, *> {
  * }}
  */
 function _mapStateToProps(state): Object {
+    const flag = Boolean(getFeatureFlag(state, PIP_ENABLED));
+    let enabled = flag;
+
+    // Override flag for Android < 26, PiP was introduced in Oreo.
+    // https://developer.android.com/guide/topics/ui/picture-in-picture
+    if (Platform.OS === 'android' && Platform.Version < 26) {
+        enabled = false;
+    }
+
     return {
-        _enabled: Boolean(getAppProp(state, 'pictureInPictureEnabled'))
+        _enabled: enabled
     };
 }
 

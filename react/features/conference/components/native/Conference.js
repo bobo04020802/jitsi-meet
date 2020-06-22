@@ -1,43 +1,42 @@
 // @flow
 
 import React from 'react';
+import { NativeModules, SafeAreaView, StatusBar } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 
-import { BackHandler, SafeAreaView, StatusBar, View } from 'react-native';
-
-import { appNavigate } from '../../../app';
-import { connect, disconnect } from '../../../base/connection';
-import { getParticipantCount } from '../../../base/participants';
+import { appNavigate } from '../../../app/actions';
+import { PIP_ENABLED, getFeatureFlag } from '../../../base/flags';
 import { Container, LoadingIndicator, TintedView } from '../../../base/react';
-import { connect as reactReduxConnect } from '../../../base/redux';
-import {
-    isNarrowAspectRatio,
-    makeAspectRatioAware
-} from '../../../base/responsive-ui';
+import { connect } from '../../../base/redux';
+import { ASPECT_RATIO_NARROW } from '../../../base/responsive-ui/constants';
 import { TestConnectionInfo } from '../../../base/testing';
-import { createDesiredLocalTracks } from '../../../base/tracks';
-import { ConferenceNotification } from '../../../calendar-sync';
+import { ConferenceNotification, isCalendarEnabled } from '../../../calendar-sync';
 import { Chat } from '../../../chat';
+import { DisplayNameLabel } from '../../../display-name';
+import { SharedDocument } from '../../../etherpad';
 import {
     FILMSTRIP_SIZE,
     Filmstrip,
     isFilmstripVisible,
     TileView
 } from '../../../filmstrip';
-import { LargeVideo } from '../../../large-video';
 import { AddPeopleDialog, CalleeInfoContainer } from '../../../invite';
+import { LargeVideo } from '../../../large-video';
+import { KnockingParticipantList } from '../../../lobby';
+import { BackButtonRegistry } from '../../../mobile/back-button';
 import { Captions } from '../../../subtitles';
-import { setToolboxVisible, Toolbox } from '../../../toolbox';
-
+import { isToolboxVisible, setToolboxVisible, Toolbox } from '../../../toolbox';
 import {
     AbstractConference,
     abstractMapStateToProps
 } from '../AbstractConference';
-import DisplayNameLabel from './DisplayNameLabel';
-import Labels from './Labels';
-import NavigationBar from './NavigationBar';
-import styles from './styles';
-
 import type { AbstractProps } from '../AbstractConference';
+
+import Labels from './Labels';
+import LonelyMeetingExperience from './LonelyMeetingExperience';
+import NavigationBar from './NavigationBar';
+import styles, { NAVBAR_GRADIENT_COLORS } from './styles';
+
 
 /**
  * The type of the React {@code Component} props of {@link Conference}.
@@ -45,95 +44,53 @@ import type { AbstractProps } from '../AbstractConference';
 type Props = AbstractProps & {
 
     /**
+     * Application's aspect ratio.
+     */
+    _aspectRatio: Symbol,
+
+    /**
+     * Wherther the calendar feature is enabled or not.
+     */
+    _calendarEnabled: boolean,
+
+    /**
      * The indicator which determines that we are still connecting to the
      * conference which includes establishing the XMPP connection and then
      * joining the room. If truthy, then an activity/loading indicator will be
      * rendered.
-     *
-     * @private
      */
     _connecting: boolean,
 
     /**
      * Set to {@code true} when the filmstrip is currently visible.
-     *
-     * @private
      */
     _filmstripVisible: boolean,
 
     /**
-     * Current conference's full URL.
-     *
-     * @private
+     * The ID of the participant currently on stage (if any)
      */
-    _locationURL: URL,
+    _largeVideoParticipantId: string,
 
     /**
-     * The handler which dispatches the (redux) action connect.
-     *
-     * @private
-     * @returns {void}
+     * Whether Picture-in-Picture is enabled.
      */
-    _onConnect: Function,
-
-    /**
-     * The handler which dispatches the (redux) action disconnect.
-     *
-     * @private
-     * @returns {void}
-     */
-    _onDisconnect: Function,
-
-    /**
-     * Handles a hardware button press for back navigation. Leaves the
-     * associated {@code Conference}.
-     *
-     * @private
-     * @returns {boolean} As the associated conference is unconditionally left
-     * and exiting the app while it renders a {@code Conference} is undesired,
-     * {@code true} is always returned.
-     */
-    _onHardwareBackPress: Function,
-
-    /**
-     * The number of participants in the conference.
-     *
-     * @private
-     */
-    _participantCount: number,
+    _pictureInPictureEnabled: boolean,
 
     /**
      * The indicator which determines whether the UI is reduced (to accommodate
      * smaller display areas).
-     *
-     * @private
      */
     _reducedUI: boolean,
 
     /**
-     * The handler which dispatches the (redux) action {@link setToolboxVisible}
-     * to show/hide the {@link Toolbox}.
-     *
-     * @param {boolean} visible - {@code true} to show the {@code Toolbox} or
-     * {@code false} to hide it.
-     * @private
-     * @returns {void}
-     */
-    _setToolboxVisible: Function,
-
-    /**
      * The indicator which determines whether the Toolbox is visible.
-     *
-     * @private
      */
     _toolboxVisible: boolean,
 
     /**
-     * The indicator which determines whether the Toolbox is always visible.
-     *
-     * @private
+     * The redux {@code dispatch} function.
      */
-    _toolboxAlwaysVisible: boolean
+    dispatch: Function
 };
 
 /**
@@ -151,6 +108,8 @@ class Conference extends AbstractConference<Props, *> {
 
         // Bind event handlers so they are only bound once per instance.
         this._onClick = this._onClick.bind(this);
+        this._onHardwareBackPress = this._onHardwareBackPress.bind(this);
+        this._setToolboxVisible = this._setToolboxVisible.bind(this);
     }
 
     /**
@@ -161,53 +120,7 @@ class Conference extends AbstractConference<Props, *> {
      * @returns {void}
      */
     componentDidMount() {
-        this.props._onConnect();
-
-        BackHandler.addEventListener(
-            'hardwareBackPress',
-            this.props._onHardwareBackPress);
-
-        // Show the toolbox if we are the only participant; otherwise, the whole
-        // UI looks too unpopulated the LargeVideo visible.
-        const { _participantCount, _setToolboxVisible } = this.props;
-
-        _participantCount === 1 && _setToolboxVisible(true);
-    }
-
-    /**
-     * Implements React's {@link Component#componentDidUpdate()}.
-     *
-     * @inheritdoc
-     */
-    componentDidUpdate(pevProps: Props) {
-        const {
-            _locationURL: oldLocationURL,
-            _participantCount: oldParticipantCount,
-            _room: oldRoom
-        } = pevProps;
-        const {
-            _locationURL: newLocationURL,
-            _participantCount: newParticipantCount,
-            _room: newRoom,
-            _setToolboxVisible,
-            _toolboxVisible
-        } = this.props;
-
-        // If the location URL changes we need to reconnect.
-        oldLocationURL !== newLocationURL && this.props._onDisconnect();
-
-        // Start the connection process when there is a (valid) room.
-        oldRoom !== newRoom && newRoom && this.props._onConnect();
-
-        if (oldParticipantCount === 1
-                && newParticipantCount > 1
-                && _toolboxVisible) {
-            _setToolboxVisible(false);
-        } else if (oldParticipantCount > 1
-                && newParticipantCount === 1
-                && !_toolboxVisible) {
-            _setToolboxVisible(true);
-        }
+        BackButtonRegistry.addListener(this._onHardwareBackPress);
     }
 
     /**
@@ -220,11 +133,7 @@ class Conference extends AbstractConference<Props, *> {
      */
     componentWillUnmount() {
         // Tear handling any hardware button presses for back navigation down.
-        BackHandler.removeEventListener(
-            'hardwareBackPress',
-            this.props._onHardwareBackPress);
-
-        this.props._onDisconnect();
+        BackButtonRegistry.removeListener(this._onHardwareBackPress);
     }
 
     /**
@@ -234,86 +143,13 @@ class Conference extends AbstractConference<Props, *> {
      * @returns {ReactElement}
      */
     render() {
-        const {
-            _connecting,
-            _reducedUI,
-            _shouldDisplayTileView
-        } = this.props;
-
         return (
             <Container style = { styles.conference }>
                 <StatusBar
                     barStyle = 'light-content'
                     hidden = { true }
                     translucent = { true } />
-
-                <Chat />
-                <AddPeopleDialog />
-
-                {/*
-                  * The LargeVideo is the lowermost stacking layer.
-                  */
-                    _shouldDisplayTileView
-                        ? <TileView onClick = { this._onClick } />
-                        : <LargeVideo onClick = { this._onClick } />
-                }
-
-                {/*
-                  * If there is a ringing call, show the callee's info.
-                  */
-                    _reducedUI || <CalleeInfoContainer />
-                }
-
-                {/*
-                  * The activity/loading indicator goes above everything, except
-                  * the toolbox/toolbars and the dialogs.
-                  */
-                    _connecting
-                        && <TintedView>
-                            <LoadingIndicator />
-                        </TintedView>
-                }
-
-                <View
-                    pointerEvents = 'box-none'
-                    style = { styles.toolboxAndFilmstripContainer }>
-
-                    <Labels />
-
-                    <Captions onPress = { this._onClick } />
-
-                    <DisplayNameLabel />
-
-                    {/*
-                      * The Toolbox is in a stacking layer bellow the Filmstrip.
-                      */}
-                    <Toolbox />
-
-                    {/*
-                      * The Filmstrip is in a stacking layer above the
-                      * LargeVideo. The LargeVideo and the Filmstrip form what
-                      * the Web/React app calls "videospace". Presumably, the
-                      * name and grouping stem from the fact that these two
-                      * React Components depict the videos of the conference's
-                      * participants.
-                      */
-                        _shouldDisplayTileView ? undefined : <Filmstrip />
-                    }
-                </View>
-
-                <SafeAreaView
-                    pointerEvents = 'box-none'
-                    style = { styles.navBarSafeView }>
-                    <NavigationBar />
-                    { this.renderNotificationsContainer() }
-                </SafeAreaView>
-
-                <TestConnectionInfo />
-
-                {
-                    this._renderConferenceNotification()
-                }
-
+                { this._renderContent() }
             </Container>
         );
     }
@@ -328,13 +164,46 @@ class Conference extends AbstractConference<Props, *> {
      * @returns {void}
      */
     _onClick() {
-        if (this.props._toolboxAlwaysVisible) {
-            return;
+        this._setToolboxVisible(!this.props._toolboxVisible);
+    }
+
+    _onHardwareBackPress: () => boolean;
+
+    /**
+     * Handles a hardware button press for back navigation. Enters Picture-in-Picture mode
+     * (if supported) or leaves the associated {@code Conference} otherwise.
+     *
+     * @returns {boolean} Exiting the app is undesired, so {@code true} is always returned.
+     */
+    _onHardwareBackPress() {
+        let p;
+
+        if (this.props._pictureInPictureEnabled) {
+            const { PictureInPicture } = NativeModules;
+
+            p = PictureInPicture.enterPictureInPicture();
+        } else {
+            p = Promise.reject(new Error('PiP not enabled'));
         }
 
-        const toolboxVisible = !this.props._toolboxVisible;
+        p.catch(() => {
+            this.props.dispatch(appNavigate(undefined));
+        });
 
-        this.props._setToolboxVisible(toolboxVisible);
+        return true;
+    }
+
+    /**
+     * Renders JitsiModals that are supposed to be on the conference screen.
+     *
+     * @returns {Array<ReactElement>}
+     */
+    _renderConferenceModals() {
+        return [
+            <AddPeopleDialog key = 'addPeopleDialog' />,
+            <Chat key = 'chat' />,
+            <SharedDocument key = 'sharedDocument' />
+        ];
     }
 
     /**
@@ -344,12 +213,147 @@ class Conference extends AbstractConference<Props, *> {
      * @returns {React$Node}
      */
     _renderConferenceNotification() {
-        // XXX If the calendar feature is disabled on a platform, then we don't
-        // have its components exported so an undefined check is necessary.
+        const { _calendarEnabled, _reducedUI } = this.props;
+
         return (
-            !this.props._reducedUI && ConferenceNotification
+            _calendarEnabled && !_reducedUI
                 ? <ConferenceNotification />
                 : undefined);
+    }
+
+    /**
+     * Renders the content for the Conference container.
+     *
+     * @private
+     * @returns {React$Element}
+     */
+    _renderContent() {
+        const {
+            _aspectRatio,
+            _connecting,
+            _filmstripVisible,
+            _largeVideoParticipantId,
+            _reducedUI,
+            _shouldDisplayTileView,
+            _toolboxVisible
+        } = this.props;
+        const showGradient = _toolboxVisible;
+        const applyGradientStretching
+            = _filmstripVisible && _aspectRatio === ASPECT_RATIO_NARROW && !_shouldDisplayTileView;
+
+        if (_reducedUI) {
+            return this._renderContentForReducedUi();
+        }
+
+        return (
+            <>
+                {/*
+                  * The LargeVideo is the lowermost stacking layer.
+                  */
+                    _shouldDisplayTileView
+                        ? <TileView onClick = { this._onClick } />
+                        : <LargeVideo onClick = { this._onClick } />
+                }
+
+                {/*
+                  * If there is a ringing call, show the callee's info.
+                  */
+                    <CalleeInfoContainer />
+                }
+
+                {/*
+                  * The activity/loading indicator goes above everything, except
+                  * the toolbox/toolbars and the dialogs.
+                  */
+                    _connecting
+                        && <TintedView>
+                            <LoadingIndicator />
+                        </TintedView>
+                }
+
+                <SafeAreaView
+                    pointerEvents = 'box-none'
+                    style = { styles.toolboxAndFilmstripContainer }>
+
+                    { showGradient && <LinearGradient
+                        colors = { NAVBAR_GRADIENT_COLORS }
+                        end = {{
+                            x: 0.0,
+                            y: 0.0
+                        }}
+                        pointerEvents = 'none'
+                        start = {{
+                            x: 0.0,
+                            y: 1.0
+                        }}
+                        style = { [
+                            styles.bottomGradient,
+                            applyGradientStretching ? styles.gradientStretchBottom : undefined
+                        ] } />}
+
+                    <Labels />
+
+                    <Captions onPress = { this._onClick } />
+
+                    { _shouldDisplayTileView || <DisplayNameLabel participantId = { _largeVideoParticipantId } /> }
+
+                    <LonelyMeetingExperience />
+
+                    {/*
+                      * The Toolbox is in a stacking layer below the Filmstrip.
+                      */}
+                    <Toolbox />
+
+                    {/*
+                      * The Filmstrip is in a stacking layer above the
+                      * LargeVideo. The LargeVideo and the Filmstrip form what
+                      * the Web/React app calls "videospace". Presumably, the
+                      * name and grouping stem from the fact that these two
+                      * React Components depict the videos of the conference's
+                      * participants.
+                      */
+                        _shouldDisplayTileView ? undefined : <Filmstrip />
+                    }
+                </SafeAreaView>
+
+                <SafeAreaView
+                    pointerEvents = 'box-none'
+                    style = { styles.navBarSafeView }>
+                    <NavigationBar />
+                    { this._renderNotificationsContainer() }
+                    <KnockingParticipantList />
+                </SafeAreaView>
+
+                <TestConnectionInfo />
+
+                { this._renderConferenceNotification() }
+
+                { this._renderConferenceModals() }
+            </>
+        );
+    }
+
+    /**
+     * Renders the content for the Conference container when in "reduced UI" mode.
+     *
+     * @private
+     * @returns {React$Element}
+     */
+    _renderContentForReducedUi() {
+        const { _connecting } = this.props;
+
+        return (
+            <>
+                <LargeVideo onClick = { this._onClick } />
+
+                {
+                    _connecting
+                        && <TintedView>
+                            <LoadingIndicator />
+                        </TintedView>
+                }
+            </>
+        );
     }
 
     /**
@@ -359,7 +363,7 @@ class Conference extends AbstractConference<Props, *> {
      * @private
      * @returns {React$Element}
      */
-    renderNotificationsContainer() {
+    _renderNotificationsContainer() {
         const notificationsStyle = {};
 
         // In the landscape mode (wide) there's problem with notifications being
@@ -372,7 +376,9 @@ class Conference extends AbstractConference<Props, *> {
         // flex layout. The only option that seemed to limit the notification's
         // size was explicit 'width' value which is not better than the margin
         // added here.
-        if (this.props._filmstripVisible && !isNarrowAspectRatio(this)) {
+        const { _aspectRatio, _filmstripVisible } = this.props;
+
+        if (_filmstripVisible && _aspectRatio !== ASPECT_RATIO_NARROW) {
             notificationsStyle.marginRight = FILMSTRIP_SIZE;
         }
 
@@ -382,70 +388,20 @@ class Conference extends AbstractConference<Props, *> {
             }
         );
     }
-}
 
-/**
- * Maps dispatching of some action to React component props.
- *
- * @param {Function} dispatch - Redux action dispatcher.
- * @private
- * @returns {{
- *     _onConnect: Function,
- *     _onDisconnect: Function,
- *     _onHardwareBackPress: Function,
- *     _setToolboxVisible: Function
- * }}
- */
-function _mapDispatchToProps(dispatch) {
-    return {
-        /**
-         * Dispatches actions to create the desired local tracks and for
-         * connecting to the conference.
-         *
-         * @private
-         * @returns {void}
-         */
-        _onConnect() {
-            dispatch(createDesiredLocalTracks());
-            dispatch(connect());
-        },
+    _setToolboxVisible: (boolean) => void;
 
-        /**
-         * Dispatches an action disconnecting from the conference.
-         *
-         * @private
-         * @returns {void}
-         */
-        _onDisconnect() {
-            dispatch(disconnect());
-        },
-
-        /**
-         * Handles a hardware button press for back navigation. Leaves the
-         * associated {@code Conference}.
-         *
-         * @returns {boolean} As the associated conference is unconditionally
-         * left and exiting the app while it renders a {@code Conference} is
-         * undesired, {@code true} is always returned.
-         */
-        _onHardwareBackPress() {
-            dispatch(appNavigate(undefined));
-
-            return true;
-        },
-
-        /**
-         * Dispatches an action changing the visibility of the {@link Toolbox}.
-         *
-         * @private
-         * @param {boolean} visible - Pass {@code true} to show the
-         * {@code Toolbox} or {@code false} to hide it.
-         * @returns {void}
-         */
-        _setToolboxVisible(visible) {
-            dispatch(setToolboxVisible(visible));
-        }
-    };
+    /**
+     * Dispatches an action changing the visibility of the {@link Toolbox}.
+     *
+     * @private
+     * @param {boolean} visible - Pass {@code true} to show the
+     * {@code Toolbox} or {@code false} to hide it.
+     * @returns {void}
+     */
+    _setToolboxVisible(visible) {
+        this.props.dispatch(setToolboxVisible(visible));
+    }
 }
 
 /**
@@ -456,15 +412,14 @@ function _mapDispatchToProps(dispatch) {
  * @returns {Props}
  */
 function _mapStateToProps(state) {
-    const { connecting, connection, locationURL }
-        = state['features/base/connection'];
+    const { connecting, connection } = state['features/base/connection'];
     const {
         conference,
         joining,
+        membersOnly,
         leaving
     } = state['features/base/conference'];
-    const { reducedUI } = state['features/base/responsive-ui'];
-    const { alwaysVisible, visible } = state['features/toolbox'];
+    const { aspectRatio, reducedUI } = state['features/base/responsive-ui'];
 
     // XXX There is a window of time between the successful establishment of the
     // XMPP connection and the subsequent commencement of joining the MUC during
@@ -476,69 +431,19 @@ function _mapStateToProps(state) {
     // - the XMPP connection is connected and we have no conference yet, nor we
     //   are leaving one.
     const connecting_
-        = connecting || (connection && (joining || (!conference && !leaving)));
+        = connecting || (connection && (!membersOnly && (joining || (!conference && !leaving))));
 
     return {
         ...abstractMapStateToProps(state),
-
-        /**
-         * The indicator which determines that we are still connecting to the
-         * conference which includes establishing the XMPP connection and then
-         * joining the room. If truthy, then an activity/loading indicator will
-         * be rendered.
-         *
-         * @private
-         * @type {boolean}
-         */
+        _aspectRatio: aspectRatio,
+        _calendarEnabled: isCalendarEnabled(state),
         _connecting: Boolean(connecting_),
-
-        /**
-         * Is {@code true} when the filmstrip is currently visible.
-         */
         _filmstripVisible: isFilmstripVisible(state),
-
-        /**
-         * Current conference's full URL.
-         *
-         * @private
-         * @type {URL}
-         */
-        _locationURL: locationURL,
-
-        /**
-         * The number of participants in the conference.
-         *
-         * @private
-         * @type {number}
-         */
-        _participantCount: getParticipantCount(state),
-
-        /**
-         * The indicator which determines whether the UI is reduced (to
-         * accommodate smaller display areas).
-         *
-         * @private
-         * @type {boolean}
-         */
+        _largeVideoParticipantId: state['features/large-video'].participantId,
+        _pictureInPictureEnabled: getFeatureFlag(state, PIP_ENABLED),
         _reducedUI: reducedUI,
-
-        /**
-         * The indicator which determines whether the Toolbox is visible.
-         *
-         * @private
-         * @type {boolean}
-         */
-        _toolboxVisible: visible,
-
-        /**
-         * The indicator which determines whether the Toolbox is always visible.
-         *
-         * @private
-         * @type {boolean}
-         */
-        _toolboxAlwaysVisible: alwaysVisible
+        _toolboxVisible: isToolboxVisible(state)
     };
 }
 
-export default reactReduxConnect(_mapStateToProps, _mapDispatchToProps)(
-    makeAspectRatioAware(Conference));
+export default connect(_mapStateToProps)(Conference);

@@ -21,12 +21,24 @@ type Props = {
     /**
      * Optional callback to invoke once the video starts playing.
      */
-    onVideoPlaying: Function,
+    onVideoPlaying?: Function,
 
     /**
      * The JitsiLocalTrack to display.
      */
-    videoTrack: ?Object
+    videoTrack: ?Object,
+
+    /**
+     * Used to determine the value of the autoplay attribute of the underlying
+     * video element.
+     */
+    autoPlay: boolean,
+
+    /**
+     * Used to determine the value of the autoplay attribute of the underlying
+     * video element.
+     */
+    playsinline: boolean
 };
 
 /**
@@ -44,8 +56,9 @@ class Video extends Component<Props> {
      */
     static defaultProps = {
         className: '',
-
-        id: ''
+        autoPlay: true,
+        id: '',
+        playsinline: true
     };
 
     /**
@@ -131,9 +144,10 @@ class Video extends Component<Props> {
     render() {
         return (
             <video
-                autoPlay = { true }
+                autoPlay = { this.props.autoPlay }
                 className = { this.props.className }
                 id = { this.props.id }
+                playsInline = { this.props.playsinline }
                 ref = { this._setVideoElement } />
         );
     }

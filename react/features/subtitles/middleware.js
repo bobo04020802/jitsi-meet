@@ -3,15 +3,14 @@
 import { MiddlewareRegistry } from '../base/redux';
 
 import {
-    removeTranscriptMessage,
-    updateTranscriptMessage
-} from './actions';
-import {
     ENDPOINT_MESSAGE_RECEIVED,
     TOGGLE_REQUESTING_SUBTITLES
 } from './actionTypes';
-
-const logger = require('jitsi-meet-logger').getLogger(__filename);
+import {
+    removeTranscriptMessage,
+    updateTranscriptMessage
+} from './actions';
+import logger from './logger';
 
 /**
  * The type of json-message which indicates that json carries a

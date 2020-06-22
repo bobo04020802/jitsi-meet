@@ -18,6 +18,8 @@ import {
 
 import { selectParticipant, selectParticipantInLargeVideo } from './actions';
 
+import './subscriber';
+
 /**
  * Middleware that catches actions related to participants and tracks and
  * dispatches an action to select a participant depicted by LargeVideo.
@@ -38,7 +40,6 @@ MiddlewareRegistry.register(store => next => action => {
 
         break;
     }
-
     case PARTICIPANT_JOINED:
     case PARTICIPANT_LEFT:
     case PIN_PARTICIPANT:

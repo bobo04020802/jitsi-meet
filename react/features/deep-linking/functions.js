@@ -1,35 +1,15 @@
 /* global interfaceConfig */
 
-import { URI_PROTOCOL_PATTERN } from '../base/util';
+import { isMobileBrowser } from '../base/environment/utils';
 import { Platform } from '../base/react';
+import { URI_PROTOCOL_PATTERN } from '../base/util';
 
 import {
     DeepLinkingDesktopPage,
     DeepLinkingMobilePage,
     NoMobileApp
 } from './components';
-import { _shouldShowDeepLinkingDesktopPage }
-    from './shouldShowDeepLinkingDesktopPage';
-
-/**
- * Promise that resolves when the window load event is received.
- *
- * @type {Promise<void>}
- */
-const windowLoadedPromise = new Promise(resolve => {
-    /**
-     * Handler for the window load event.
-     *
-     * @returns {void}
-     */
-    function onWindowLoad() {
-        resolve();
-        window.removeEventListener('load', onWindowLoad);
-    }
-
-    window.addEventListener('load', onWindowLoad);
-});
-
+import { _openDesktopApp } from './openDesktopApp';
 
 /**
  * Generates a deep linking URL based on the current window URL.
@@ -70,16 +50,14 @@ export function generateDeepLinkingURL() {
  */
 export function getDeepLinkingPage(state) {
     const { room } = state['features/base/conference'];
+    const { launchInWeb } = state['features/deep-linking'];
 
     // Show only if we are about to join a conference.
-    if (!room) {
+    if (launchInWeb || !room || state['features/base/config'].disableDeepLinking) {
         return Promise.resolve();
     }
 
-    const OS = Platform.OS;
-    const isUsingMobileBrowser = OS === 'android' || OS === 'ios';
-
-    if (isUsingMobileBrowser) { // mobile
+    if (isMobileBrowser()) { // mobile
         const mobileAppPromo
             = typeof interfaceConfig === 'object'
                 && interfaceConfig.MOBILE_APP_PROMO;
@@ -89,30 +67,18 @@ export function getDeepLinkingPage(state) {
                 ? DeepLinkingMobilePage : NoMobileApp);
     }
 
-    // desktop
-    const { launchInWeb } = state['features/deep-linking'];
-
-    if (launchInWeb) {
-        return Promise.resolve();
-    }
-
-    return _shouldShowDeepLinkingDesktopPage().then(
+    return _openDesktopApp(state).then(
         // eslint-disable-next-line no-confusing-arrow
-        show => show ? DeepLinkingDesktopPage : undefined);
+        result => result ? DeepLinkingDesktopPage : undefined);
 }
 
 /**
  * Opens the desktop app.
  *
- * @returns {void}
+ * @param {Object} state - Object containing current redux state.
+ * @returns {Promise<boolean>} - Resolves with true if the attempt to open the desktop app was successful and resolves
+ * with false otherwise.
  */
-export function openDesktopApp() {
-    windowLoadedPromise.then(() => {
-        // If the code for opening the deep link is executed before the window
-        // load event, something with the internal chrome state goes wrong. The
-        // result is that no window load event is received which is the cause
-        // for some permission prompts to not be displayed. In our case the GUM
-        // prompt wasn't displayed which causes the GUM call to never finish.
-        window.location.href = generateDeepLinkingURL();
-    });
+export function openDesktopApp(state) {
+    return _openDesktopApp(state);
 }
